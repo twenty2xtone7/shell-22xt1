@@ -10,6 +10,61 @@
 
 </div>
 
+## This fork
+
+A source-level rebuild of Caelestia Shell: upstream `shell/` with a full customisation
+tree merged into it, plus our own build of the C++ plugin. Ships the same QML modules
+as upstream, so anything written against `Caelestia.*` keeps working.
+
+Added on top of upstream:
+
+- Radial menu, liquid glass surfaces, snowfall, night light, rainbow colour animator
+- Launcher mini-apps: chat, translate, clipboard, music, fan control, `>` command registry
+- Nexus pages: dynamic lyrics, liquid glass, recordings, snow, chat, calendar events
+- Bar positioning, running text, dynamic lyrics drawer, battery monitor additions
+- Performance work: snowfall runs on Qt's GPU particle engine instead of a per-frame QML
+  JS loop, the dashboard is warmed at startup instead of rebuilt on every open, and the
+  per-tick subprocess polling (`JobQueue`/`SystemMonitor`) is gone — the shell binds
+  straight to the in-process C++ services
+
+### Install (no root, no package changes)
+
+```sh
+git clone <this-repo> caelestia-fork
+cd caelestia-fork
+./install.sh
+```
+
+The installer builds the plugin and deploys everything to
+`~/.config/quickshell/caelestia/`, which shadows `/etc/xdg/quickshell/caelestia/`.
+It never touches `~/.config/hypr`, never installs packages, never calls `sudo`.
+
+Run it with `caelestia shell -d`. Remove it with `./install.sh --uninstall`.
+
+Requirements: `quickshell`, `cmake`, `ninja`, Qt 6 (base, declarative, multimedia,
+shadertools), `libpipewire`, `aubio`, `libqalculate`, `libcava`, `lm_sensors`.
+
+### Install through the caelestia CLI
+
+`manifest.toml` is included, so `caelestia install` can drive it too:
+
+```sh
+# point the CLI at this repo, then install
+mkdir -p ~/.config/caelestia
+printf '{"dots":{"url":"<this-repo-url>","branch":"main"}}\n' > ~/.config/caelestia/cli.json
+caelestia install --noconfirm
+caelestia update --noconfirm   # rebuilds the plugin from the fetched source
+```
+
+The CLI path also deploys only the shell; the hyprland config in `hypr/` is reference
+material for this fork's keybinds and is not applied automatically.
+
+### Relationship to upstream
+
+Merged and kept in sync with [`caelestia-dots/shell`](https://github.com/caelestia-dots/shell).
+Upstream's C++ architecture is untouched except where a fork feature needed a backend:
+polling stays in C++ `TickingService` subclasses, event-driven work stays in QML.
+
 https://github.com/user-attachments/assets/0840f496-575c-4ca6-83a8-87bb01a85c5f
 
 ## Components

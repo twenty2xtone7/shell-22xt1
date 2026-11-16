@@ -82,5 +82,5 @@ require("hyprland-gui")
 pcall(function() dofile(os.getenv("HOME") .. "/.config/hypr/refresh-rate.lua") end)
 
 -- >>> voxboard managed include (do not edit) >>>
-pcall(function() dofile("/home/twenty2xtone/.config/hypr/voxboard.lua") end)
+pcall(function() dofile(os.getenv("HOME") .. "/.config/hypr/voxboard.lua") end)
 -- <<< voxboard managed include <<<

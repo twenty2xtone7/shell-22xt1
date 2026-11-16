@@ -12,7 +12,7 @@ import Quickshell.Services.Pam
  * Usage:
  *   PrivilegedAction {
  *       id: rebootWindows
- *       command: ["/home/twenty2xtone/.local/bin/caelestia-reboot-windows"]
+ *       command: ["/usr/local/bin/caelestia-reboot-windows"]
  *       onSuccess: console.log("Success")
  *       onError: (msg) => console.log("Error:", msg)
  *       onAuthRequired: { ... show dialog ... }
