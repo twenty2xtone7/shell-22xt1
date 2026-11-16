@@ -15,13 +15,17 @@ Singleton {
     property bool showPreview
     property string scheme
     property string flavour
+    // Last committed (non-preview) scheme payload. The wallpaper service
+    // restores terminal colors from this when a preview is dismissed.
+    property string committedColoursJson: ""
     readonly property bool light: showPreview ? previewLight : currentLight
     property bool currentLight
     property bool previewLight
-    readonly property M3Palette palette: showPreview ? preview : current
+    readonly property M3Palette palette: showPreview ? preview : (RainbowAnimator.enabled ? rainbowPalette : current)
     readonly property M3TPalette tPalette: M3TPalette {}
     readonly property M3Palette current: M3Palette {}
     readonly property M3Palette preview: M3Palette {}
+    readonly property M3Palette rainbowPalette: M3RainbowPalette {}
     readonly property Transparency transparency: Transparency {}
     readonly property alias wallLuminance: analyser.luminance
 
@@ -53,6 +57,30 @@ Singleton {
         return layer === 0 ? Qt.alpha(c, transparency.base) : alterColour(c, transparency.layers, layer ?? 1);
     }
 
+    // Scheme colour + Liquid Glass material parameters → final glass fill.
+    function glassSurface(): color {
+        const c = root.layer(root.palette.m3surface, 0);
+        if (!LiquidGlass.enabled)
+            return c;
+
+        const tinted = Qt.tint(c, Qt.alpha(root.palette.m3primary, LiquidGlass.tint * 0.4));
+        const sat = Math.max(0, Math.min(1, tinted.hslSaturation * LiquidGlass.saturation));
+        const lit = Math.max(0, Math.min(1, 0.5 + (tinted.hslLightness * LiquidGlass.brightness - 0.5) * LiquidGlass.contrast));
+        return Qt.hsla(tinted.hslHue, sat, lit, c.a);
+    }
+
+    readonly property color glassFill: {
+        LiquidGlass.enabled;
+        LiquidGlass.opacity;
+        LiquidGlass.tint;
+        LiquidGlass.saturation;
+        LiquidGlass.brightness;
+        LiquidGlass.contrast;
+        root.palette.m3surface;
+        root.palette.m3primary;
+        return root.glassSurface();
+    }
+
     function on(c: color): color {
         if (c.hslLightness < 0.5)
             return Qt.hsla(c.hslHue, c.hslSaturation, 0.9, 1);
@@ -61,7 +89,15 @@ Singleton {
 
     function load(data: string, isPreview: bool): void {
         const colours = isPreview ? preview : current;
-        const scheme = JSON.parse(data);
+        let scheme;
+        try {
+            scheme = JSON.parse(data);
+        } catch (e) {
+            console.warn("[Colours] invalid colour payload, skipping:", String(data).slice(0, 120));
+            return;
+        }
+        if (!scheme || typeof scheme !== "object")
+            return;
 
         if (!isPreview) {
             root.scheme = scheme.name;
@@ -117,7 +153,10 @@ Singleton {
         path: `${Paths.state}/scheme.json`
         watchChanges: true
         onFileChanged: reload()
-        onLoaded: root.load(text(), false)
+        onLoaded: {
+            root.committedColoursJson = text();
+            root.load(text(), false);
+        }
     }
 
     ImageAnalyser {
@@ -147,8 +186,8 @@ Singleton {
     }
 
     component Transparency: QtObject {
-        readonly property bool enabled: Tokens.transparency.enabled
-        readonly property real base: Math.max(0, Math.min(1, Tokens.transparency.base - (root.light ? 0.1 : 0)))
+        readonly property bool enabled: LiquidGlass.enabled || Tokens.transparency.enabled
+        readonly property real base: Math.max(0, Math.min(1, (LiquidGlass.enabled ? LiquidGlass.opacity : Tokens.transparency.base) - (root.light ? 0.1 : 0)))
         readonly property real layers: Math.max(0, Math.min(1, Tokens.transparency.layers))
 
         onEnabledChanged: {
@@ -225,6 +264,101 @@ Singleton {
         readonly property color m3tertiaryFixedDim: root.layer(root.palette.m3tertiaryFixedDim)
         readonly property color m3onTertiaryFixed: root.layer(root.palette.m3onTertiaryFixed)
         readonly property color m3onTertiaryFixedVariant: root.layer(root.palette.m3onTertiaryFixedVariant)
+    }
+
+    component M3RainbowPalette: M3Palette {
+        // Rainbow-animated palette: surfaces and accents cycle through the spectrum.
+        // Text colors stay fixed light so they remain readable at any hue.
+        
+        readonly property color m3primary_paletteKeyColor: RainbowAnimator.primary
+        readonly property color m3secondary_paletteKeyColor: RainbowAnimator.secondary
+        readonly property color m3tertiary_paletteKeyColor: RainbowAnimator.tertiary
+        readonly property color m3neutral_paletteKeyColor: RainbowAnimator.surface
+        readonly property color m3neutral_variant_paletteKeyColor: RainbowAnimator.surfaceVariant
+        
+        // Surfaces and accents cycle with hue
+        property color m3background: RainbowAnimator.surface
+        property color m3surface: RainbowAnimator.surface
+        property color m3surfaceDim: RainbowAnimator.surface
+        property color m3surfaceBright: RainbowAnimator.surfaceContainerHighest
+        property color m3surfaceContainerLowest: RainbowAnimator.surface
+        property color m3surfaceContainerLow: RainbowAnimator.surfaceContainer
+        property color m3surfaceContainer: RainbowAnimator.surfaceContainer
+        property color m3surfaceContainerHigh: RainbowAnimator.surfaceContainerHigh
+        property color m3surfaceContainerHighest: RainbowAnimator.surfaceContainerHighest
+        property color m3surfaceVariant: RainbowAnimator.surfaceVariant
+        property color m3outline: RainbowAnimator.outline
+        property color m3outlineVariant: RainbowAnimator.outlineVariant
+        property color m3shadow: "#000000"
+        property color m3scrim: "#000000"
+        
+        // Text on dark surfaces stays fixed white
+        property color m3onBackground: "#f0eff0"
+        property color m3onSurface: "#f0eff0"
+        property color m3onSurfaceVariant: "#bfbcc1"
+        property color m3inverseSurface: "#f0eff0"
+        property color m3inverseOnSurface: "#363538"
+        
+        // Accent + on-accent text stays fixed
+        property color m3surfaceTint: RainbowAnimator.primary
+        property color m3primary: RainbowAnimator.primary
+        property color m3onPrimary: "#100022"
+        property color m3primaryContainer: Qt.tint(RainbowAnimator.primary, RainbowAnimator.surfaceContainer)
+        property color m3onPrimaryContainer: "#f4efff"
+        property color m3inversePrimary: Qt.lighter(RainbowAnimator.primary, 1.3)
+        
+        property color m3secondary: RainbowAnimator.secondary
+        property color m3onSecondary: "#2a2133"
+        property color m3secondaryContainer: Qt.tint(RainbowAnimator.secondary, RainbowAnimator.surfaceContainer)
+        property color m3onSecondaryContainer: "#f4efff"
+        
+        property color m3tertiary: RainbowAnimator.tertiary
+        property color m3onTertiary: "#2a2415"
+        property color m3tertiaryContainer: Qt.tint(RainbowAnimator.tertiary, RainbowAnimator.surfaceContainer)
+        property color m3onTertiaryContainer: "#fff0d9"
+        
+        property color m3error: RainbowAnimator.error
+        property color m3onError: "#ffffff"
+        property color m3errorContainer: Qt.tint(RainbowAnimator.error, RainbowAnimator.surfaceContainer)
+        property color m3onErrorContainer: "#410002"
+        
+        property color m3success: "#B5CCBA"
+        property color m3onSuccess: "#213528"
+        property color m3successContainer: "#374B3E"
+        property color m3onSuccessContainer: "#D1E9D6"
+        
+        property color m3primaryFixed: Qt.lighter(RainbowAnimator.primary, 1.8)
+        property color m3primaryFixedDim: RainbowAnimator.primary
+        property color m3onPrimaryFixed: "#100022"
+        property color m3onPrimaryFixedVariant: Qt.darker(RainbowAnimator.primary, 1.5)
+        
+        property color m3secondaryFixed: Qt.lighter(RainbowAnimator.secondary, 1.8)
+        property color m3secondaryFixedDim: RainbowAnimator.secondary
+        property color m3onSecondaryFixed: "#2a2133"
+        property color m3onSecondaryFixedVariant: Qt.darker(RainbowAnimator.secondary, 1.5)
+        
+        property color m3tertiaryFixed: Qt.lighter(RainbowAnimator.tertiary, 1.8)
+        property color m3tertiaryFixedDim: RainbowAnimator.tertiary
+        property color m3onTertiaryFixed: "#2a2415"
+        property color m3onTertiaryFixedVariant: Qt.darker(RainbowAnimator.tertiary, 1.5)
+        
+        // Terminal text stays fixed white on dark surface
+        property color term0: "#353434"
+        property color term1: RainbowAnimator.error
+        property color term2: RainbowAnimator.primary
+        property color term3: RainbowAnimator.secondary
+        property color term4: RainbowAnimator.tertiary
+        property color term5: RainbowAnimator.secondary
+        property color term6: RainbowAnimator.primary
+        property color term7: "#f0eff0"
+        property color term8: "#bfbcc1"
+        property color term9: RainbowAnimator.error
+        property color term10: RainbowAnimator.primary
+        property color term11: "#f0eff0"
+        property color term12: RainbowAnimator.tertiary
+        property color term13: RainbowAnimator.secondary
+        property color term14: RainbowAnimator.primary
+        property color term15: "#ffffff"
     }
 
     component M3Palette: QtObject {

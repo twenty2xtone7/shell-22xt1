@@ -39,7 +39,10 @@ Item {
     }
 
     visible: offsetScale < 1
-    anchors.rightMargin: (-implicitWidth - 5 - sidebarOffset) * offsetScale
+    // Off-edge travel while hidden, shared by both placements so the host can
+    // bind it to a left or right margin without duplicating the maths.
+    readonly property real slideOffset: (-implicitWidth - 5 - sidebarOffset) * offsetScale
+    anchors.rightMargin: root.slideOffset
     implicitWidth: content.implicitWidth
     implicitHeight: content.implicitHeight
     opacity: 1 - offsetScale
@@ -97,7 +100,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
 
-        asynchronous: true
+        asynchronous: false
         active: root.shouldBeActive || root.visible
 
         sourceComponent: Content {

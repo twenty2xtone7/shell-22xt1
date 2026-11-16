@@ -9,6 +9,8 @@ QtObject {
     property int currentPageIdx
     property list<int> subPageIdxStack
     property bool searchOpen
+    // Dedicated AI Chat mode: hides settings chrome and shows ChatPage.
+    property bool chatMode
 
     property string selectedWallpaperCategory
     property BluetoothDevice selectedBtDevice

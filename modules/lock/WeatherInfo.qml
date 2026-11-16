@@ -1,13 +1,15 @@
+import "weather"
 import QtQuick
 import Caelestia.Config
 import qs.components
 import qs.services
-import qs.modules.lock.weather
 
 StyledRect {
     id: root
 
     required property int rootHeight
+    // Only refresh while the lock screen is shown; the shell runs 24/7 unlocked
+    required property bool locked
     readonly property bool showForecast: rootHeight >= Tokens.sizes.lock.showForecastHeight
 
     implicitHeight: {
@@ -16,11 +18,11 @@ StyledRect {
             return base + Tokens.spacing.largeIncreased + forecast.implicitHeight + forecast.anchors.margins;
         return base + brief.anchors.topMargin;
     }
-    radius: Tokens.rounding.extraExtraLarge
+    radius: LiquidGlass.enabled ? LiquidGlass.cornerRadius : Tokens.rounding.extraExtraLarge
     color: Colours.tPalette.m3surfaceContainer
 
     Timer {
-        running: true
+        running: root.locked
         triggeredOnStart: true
         repeat: true
         interval: 900000 // 15 minutes

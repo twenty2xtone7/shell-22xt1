@@ -4,23 +4,26 @@ import QtQuick
 import QtQuick.Shapes
 import Quickshell
 import M3Shapes
-import Caelestia
 import Caelestia.Config
 import Caelestia.Services
 import qs.components
 import qs.components.widgets
 import qs.services
+import qs.modules.bar as Bar
 
 Item {
     id: root
+
+    required property ScreenState screenState
 
     readonly property real centerX: width / 2
     readonly property real centerY: height / 2
     readonly property real spacing: Tokens.spacing.medium
     readonly property real maxMagnitude: (implicitWidth - cover.implicitWidth) / 2 - spacing
 
-    ServiceRef {
-        service: Audio.cava
+    QtObject {
+        Component.onCompleted: Audio.acquireVisualiser()
+        Component.onDestruction: Audio.releaseVisualiser()
     }
 
     Shape {
@@ -41,12 +44,12 @@ Item {
             id: bar
 
             required property int modelData
-            readonly property real value: Math.max(1e-2, Math.min(1, Audio.cava.values[modelData]))
+            readonly property real value: Math.max(1e-2, Math.min(1, Audio.cava?.values[modelData] ?? 0))
 
             readonly property real angle: modelData * 2 * Math.PI / GlobalConfig.services.visualiserBars
             readonly property real dist: shapeEdgeDist + value * root.maxMagnitude
             readonly property real shapeEdgeDist: {
-                CUtils.dependency(cover.shape.rotation); // Update when shape rotation changes
+                cover.shape.rotation; // Update when shape rotation changes
                 const sDist = cover.shape.distanceAtAngle(modelData * 360 / GlobalConfig.services.visualiserBars + 90);
                 return sDist + root.spacing + strokeWidth / 2;
             }
@@ -79,5 +82,36 @@ Item {
         shape.shape: MaterialShape.Cookie9Sided
         implicitWidth: Tokens.sizes.dashboard.mediaCoverArtSize
         implicitHeight: Tokens.sizes.dashboard.mediaCoverArtSize
+
+        StyledRect {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.5)
+            opacity: hover.containsMouse ? 1 : 0
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+
+            StyledText {
+                anchors.centerIn: parent
+                text: "open dyn-lyrics"
+                font: Tokens.font.body.builders.small.build()
+                color: "white"
+            }
+
+            MouseArea {
+                id: hover
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: {
+                    const comps = ShellState.componentsFor(root.screenState.modelData);
+                    if (comps?.dynLyrics)
+                        comps.dynLyrics.active = true;
+                    root.screenState.dashboard = false;
+                }
+            }
+        }
     }
 }

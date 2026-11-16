@@ -3,11 +3,13 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Widgets
 import Caelestia
 import Caelestia.Config
 import Caelestia.I18n
 import qs.components
 import qs.components.filedialog
+import qs.services
 
 Item {
     id: root
@@ -45,8 +47,8 @@ Item {
         return allTabs.filter(tab => tab.enabled);
     }
 
-    readonly property real nonAnimWidth: dashboardTabs.length > 0 ? view.implicitWidth + viewWrapper.anchors.margins * 2 : 0
-    readonly property real nonAnimHeight: dashboardTabs.length > 0 ? tabs.implicitHeight + tabs.anchors.topMargin + view.implicitHeight + viewWrapper.anchors.margins * 2 : 0
+    readonly property real nonAnimWidth: view.implicitWidth + viewWrapper.anchors.margins * 2
+    readonly property real nonAnimHeight: tabs.implicitHeight + tabs.anchors.topMargin + view.implicitHeight + viewWrapper.anchors.margins * 2
 
     implicitWidth: nonAnimWidth
     implicitHeight: nonAnimHeight
@@ -65,7 +67,7 @@ Item {
         tabs: root.dashboardTabs
     }
 
-    ClipRect {
+    ClippingRectangle {
         id: viewWrapper
 
         anchors.top: tabs.bottom
@@ -74,15 +76,15 @@ Item {
         anchors.bottom: parent.bottom
         anchors.margins: Tokens.padding.large
 
-        radius: Tokens.rounding.large
+        radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
         color: "transparent"
 
         Flickable {
             id: view
 
-            readonly property int currentIndex: Math.min(root.screenState.dashboardTab, repeater.count - 1)
+            readonly property int currentIndex: root.screenState.dashboardTab
             readonly property Item currentItem: {
-                CUtils.dependency(repeater.count); // Trigger update on count change
+                repeater.count; // Trigger update on count change
                 return repeater.itemAt(currentIndex);
             }
 
@@ -129,11 +131,6 @@ Item {
 
                     model: ScriptModel {
                         values: root.dashboardTabs
-                    }
-
-                    onCountChanged: {
-                        if (root.screenState.dashboardTab >= count)
-                            root.screenState.dashboardTab = Math.max(0, count - 1);
                     }
 
                     delegate: Loader {
@@ -190,6 +187,14 @@ Item {
                 Anim {}
             }
         }
+    }
+
+    // Calendar dialog overlays. MUST stay outside viewWrapper: that
+    // ClippingRectangle clips everything inside it, which previously made
+    // the scrim cover only the small calendar card and let the dialog card
+    // overflow its container. Calendar.qml requests opens via CalendarUi.
+    CalendarOverlays {
+        z: 1000
     }
 
     Behavior on implicitWidth {

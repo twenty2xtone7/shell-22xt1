@@ -1,7 +1,14 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
+import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
+import Caelestia
 import Caelestia.Config
 import qs.components
+import qs.components.controls
+import qs.services
 import qs.modules.bar as Bar
 import qs.modules.dashboard as Dashboard
 import qs.modules.launcher as Launcher
@@ -33,17 +40,30 @@ Item {
     readonly property alias utilities: utilities
     readonly property alias toasts: toasts
     readonly property alias sidebar: sidebar
+    readonly property alias dynLyrics: dynLyrics
 
     anchors.fill: parent
     anchors.margins: borderThickness
-    anchors.leftMargin: bar.implicitWidth
+    anchors.leftMargin: BarState.vertical && BarState.atStart ? bar.implicitWidth : borderThickness
+    anchors.rightMargin: BarState.vertical && BarState.atEnd ? bar.implicitWidth : borderThickness
+    anchors.topMargin: BarState.horizontal && BarState.atStart ? bar.implicitHeight : borderThickness
+    anchors.bottomMargin: BarState.horizontal && BarState.atEnd ? bar.implicitHeight : borderThickness
+
+    ShellState.ComponentRef {
+        screen: root.screen
+        slot: "dynLyrics"
+        component: dynLyrics
+    }
 
     Item {
         id: osdWrapper
 
+        // Mirrored horizontally when the taskbar owns the right edge; the
+        // vertical placement (screen centre) is the same on every layout.
         anchors.verticalCenter: parent.verticalCenter
-        anchors.right: parent.right
-        anchors.rightMargin: sessionWrapper.anchors.rightMargin + session.width * (1 - session.offsetScale)
+        anchors.left: BarState.osdOnLeft ? parent.left : undefined
+        anchors.right: BarState.osdOnLeft ? undefined : parent.right
+        anchors.rightMargin: BarState.osdOnLeft ? 0 : sessionWrapper.anchors.rightMargin + session.width * (1 - session.offsetScale)
         clip: sidebar.visible || session.visible
 
         implicitWidth: osd.implicitWidth * (1 - osd.offsetScale)
@@ -57,7 +77,9 @@ Item {
             sidebarOrSessionVisible: sidebar.visible || session.visible
 
             anchors.verticalCenter: parent.verticalCenter
-            anchors.right: parent.right
+            anchors.left: BarState.osdOnLeft ? parent.left : undefined
+            anchors.leftMargin: BarState.osdOnLeft ? osd.slideOffset : 0
+            anchors.right: BarState.osdOnLeft ? undefined : parent.right
         }
     }
 
@@ -107,6 +129,14 @@ Item {
         anchors.bottom: parent.bottom
     }
 
+    DynLyrics {
+        id: dynLyrics
+        screen: root.screen
+        // Ride on the bottom edge of the dashboard so it gets pushed down
+        // fluidly as the dashboard expands down from the top, never clipping.
+        y: Math.max(0, dashboard.y + dashboard.height + Tokens.spacing.small * (1 - dashboard.offsetScale))
+    }
+
     Dashboard.Wrapper {
         id: dashboard
 
@@ -137,8 +167,12 @@ Item {
     Toasts.Toasts {
         id: toasts
 
-        anchors.bottom: sidebar.visible ? parent.bottom : utilities.top
-        anchors.right: sidebar.left
+        // Upstream pins toasts to `sidebar.left`, which is the screen's right
+        // edge whenever the sidebar is one of the right-side panels. Only when
+        // the sidebar itself sits on the left edge (bar bottom/right) do the
+        // toasts need to hang off the utilities card instead.
+        anchors.bottom: BarState.sidebarOnLeft ? utilities.top : (sidebar.visible ? parent.bottom : utilities.top)
+        anchors.right: BarState.sidebarOnLeft ? utilities.left : sidebar.left
         anchors.margins: Tokens.padding.medium
     }
 
@@ -147,9 +181,67 @@ Item {
 
         screenState: root.screenState
 
-        anchors.top: notifications.bottom
-        anchors.bottom: utilities.top
-        anchors.right: parent.right
-        anchors.topMargin: -notifications.anchors.topMargin
+        // The sidebar keeps its upstream position (right edge, hanging
+        // between the notifications and the utilities) for a left or top
+        // taskbar. A bottom taskbar parks it on the left, flush with the top
+        // so it opens downwards; a right taskbar parks it on the left flush
+        // with the bottom so it opens upwards. Either way it sits on the edge
+        // the bar does not occupy, so it can never overlap the bar.
+        anchors.left: BarState.sidebarOnLeft ? parent.left : undefined
+        anchors.right: BarState.sidebarOnLeft ? undefined : parent.right
+
+        // Left placements span the full column and hang from a single edge,
+        // so the reveal animates that one margin without resizing the drawer.
+        anchors.top: BarState.sidebarOnLeft ? (BarState.sidebarFromTop ? parent.top : undefined) : notifications.bottom
+        anchors.bottom: BarState.sidebarOnLeft ? (BarState.sidebarFromBottom ? parent.bottom : undefined) : utilities.top
+        anchors.topMargin: BarState.sidebarFromTop ? sidebar.slideOffsetVertical : (BarState.sidebarOnLeft ? 0 : -notifications.anchors.topMargin)
+        anchors.bottomMargin: BarState.sidebarFromBottom ? sidebar.slideOffsetVertical : 0
+        height: BarState.sidebarOnLeft ? parent.height : implicitHeight
+
+        // Expand-all grows the dock to fill the column down to
+        // bottomMargin (currently 10%, so ~90% tall) while utilities
+        // squeezes into the remaining strip and scrolls internally, so
+        // every card stays reachable. Collapsing hands the space back.
+        // Scoped to expand-all only; single groups expand in place.
+        states: State {
+            name: "tall"
+            when: sidebar.props.dockTall
+
+            AnchorChanges {
+                target: sidebar
+                anchors.bottom: parent.bottom
+            }
+            PropertyChanges {
+                target: sidebar
+                anchors.bottomMargin: Math.round(parent.height * 0.1)
+            }
+            PropertyChanges {
+                target: utilities
+                height: Math.round(parent.height * 0.1)
+            }
+        }
+
+        // Expand-all writes an explicit height. Restore the card-following
+        // bind on collapse, or the panel stays frozen at 10%.
+        Connections {
+            target: sidebar.props
+            function onDockTallChanged(): void {
+                if (!sidebar.props.dockTall)
+                    utilities.height = Qt.binding(() => utilities.implicitHeight);
+            }
+        }
+
+        transitions: Transition {
+            AnchorAnimation {
+                duration: Tokens.anim.durations.normal
+                easing: Tokens.anim.emphasized
+            }
+            NumberAnimation {
+                target: utilities
+                property: "height"
+                duration: Tokens.anim.durations.normal
+                easing: Tokens.anim.emphasized
+            }
+        }
     }
 }

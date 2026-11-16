@@ -49,8 +49,22 @@ Item {
                 icon: Icons.getVolumeIcon(value, root.muted)
                 value: root.volume
                 to: GlobalConfig.services.maxVolume
+                fillColor: root.volume > 1 ? Colours.palette.m3error : Colours.palette.m3secondary
                 onMoved: Audio.setVolume(value)
             }
+        }
+
+        // Volume booster: raises the ceiling to 150% for quiet sources.
+        // The slider turns red while the volume is in the boost zone (>100%).
+        IconButton {
+            Layout.alignment: Qt.AlignHCenter
+
+            icon: "volume_up"
+            type: IconButton.Tonal
+            font: Tokens.font.icon.small
+            padding: Tokens.padding.extraSmall / 2
+            checked: Audio.boostEnabled
+            onClicked: Audio.toggleBoost()
         }
 
         // Microphone volume
@@ -111,7 +125,7 @@ Item {
     component WrappedLoader: Loader {
         required property bool shouldBeActive
 
-        asynchronous: true
+        asynchronous: false
         Layout.preferredHeight: shouldBeActive ? Tokens.sizes.osd.sliderHeight : 0
         opacity: shouldBeActive ? 1 : 0
         active: opacity > 0

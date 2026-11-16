@@ -46,7 +46,7 @@ ColumnLayout {
         Layout.preferredHeight: visible ? implicitHeight : 0
         Layout.topMargin: visible ? Tokens.spacing.small : 0
         Layout.rightMargin: Tokens.padding.extraSmall
-        text: Tr.trN("%n network available", "%n networks available", Nmcli.networks.length)
+        text: Tr.trN("%n network available", "%n networks available", Nmcli.networks.length) // qmllint disable missing-property
         color: Colours.palette.m3onSurfaceVariant
         font: Tokens.font.body.small
     }
@@ -111,6 +111,12 @@ ColumnLayout {
                 elide: Text.ElideRight
                 font: Tokens.font.body.builders.medium.weight(networkItem.modelData.active ? Font.Medium : Font.Normal).build()
                 color: networkItem.modelData.active ? Colours.palette.m3primary : Colours.palette.m3onSurface
+            }
+
+            StyledText {
+                text: `${networkItem.modelData.strength}%`
+                color: Colours.palette.m3onSurfaceVariant
+                font: Tokens.font.body.small
             }
 
             StyledRect {
@@ -359,6 +365,19 @@ ColumnLayout {
         function onScanningChanged(): void {
             if (!Nmcli.scanning)
                 scanIcon.rotation = 0;
+        }
+
+        function onConnectionFailed(ssid: string): void {
+            if (root.connectingToSsid === ssid) {
+                root.connectingToSsid = "";
+                if (root.showPasswordDialog && root.passwordNetwork) {
+                    root.showPasswordDialog = false;
+                    root.passwordNetwork = null;
+                    if (root.popouts.currentName === "wirelesspassword") {
+                        root.popouts.currentName = "network";
+                    }
+                }
+            }
         }
 
         target: Nmcli

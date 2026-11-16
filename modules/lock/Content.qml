@@ -18,6 +18,7 @@ RowLayout {
         WeatherInfo {
             Layout.fillWidth: true
             rootHeight: root.height
+            locked: root.lock.lock.locked
         }
 
         Fetch {

@@ -8,7 +8,7 @@ Loader {
     property int outAnimType: Anim.FastEffects
     property int inAnimType: Anim.DefaultEffects
 
-    asynchronous: true
+    asynchronous: false
     Component.onCompleted: {
         isComplete = true;
         sourceComponent = sourceComp;

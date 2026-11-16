@@ -4,9 +4,8 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell.Wayland
 import Caelestia.Config
-import Caelestia.Multimedia
-import Caelestia.State
 import qs.components
+import qs.components.images
 import qs.services
 
 WlSessionLockSurface {
@@ -162,7 +161,7 @@ WlSessionLockSurface {
         anchors.fill: parent
         opacity: 0
 
-        layer.enabled: true
+        layer.enabled: root.lock.locked
         layer.effect: MultiEffect {
             autoPaddingEnabled: false
             blurEnabled: true
@@ -173,6 +172,7 @@ WlSessionLockSurface {
 
         Loader {
             anchors.fill: parent
+            active: root.lock.locked
             sourceComponent: Config.lock.useWallpaper ? wallpaperBackground : screencopyBackground
         }
     }
@@ -188,9 +188,8 @@ WlSessionLockSurface {
     Component {
         id: wallpaperBackground
 
-        Visual {
-            source: Wallpapers.current
-            playing: PersistentState.wallpaperPlaying
+        CachingImage {
+            path: Wallpapers.current
         }
     }
 
@@ -216,7 +215,8 @@ WlSessionLockSurface {
             radius: parent.radius
             opacity: Colours.transparency.enabled ? Colours.transparency.base : 1
 
-            layer.enabled: true
+            // ponytail: Only allocate offscreen layer when locked
+            layer.enabled: root.lock.locked
             layer.effect: MultiEffect {
                 shadowEnabled: true
                 blurMax: 15
@@ -233,16 +233,19 @@ WlSessionLockSurface {
             rotation: 180
         }
 
-        Content {
+        Loader {
             id: content
 
+            active: root.lock.locked
             anchors.centerIn: parent
             width: (root.screen?.height ?? 0) * Tokens.sizes.lock.heightMult * Tokens.sizes.lock.ratio - Tokens.padding.extraLargeIncreased
             height: (root.screen?.height ?? 0) * Tokens.sizes.lock.heightMult - Tokens.padding.extraLargeIncreased
-
-            lock: root
             opacity: 0
             scale: 0
+
+            sourceComponent: Content {
+                lock: root
+            }
         }
     }
 }

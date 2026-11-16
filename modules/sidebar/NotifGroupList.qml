@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Caelestia
 import Caelestia.Components
 import Caelestia.Config
 import qs.components
@@ -32,7 +31,7 @@ LazyListView {
 
     useCustomViewport: true
     viewport: {
-        CUtils.dependency(tWatcher.transform); // mapToItem is not reactive so use this to trigger updates
+        tWatcher.transform; // mapToItem is not reactive so use this to trigger updates
         return Qt.rect(0, container.contentY - mapToItem(container.contentItem, 0, 0).y, width, container.height);
     }
 
@@ -61,6 +60,7 @@ LazyListView {
             required property int index
             required property NotifData modelData
 
+            property int startX
             property int startY
 
             Component.onCompleted: modelData?.lock(this)
@@ -83,11 +83,23 @@ LazyListView {
             drag.axis: Drag.XAxis
 
             onPressed: event => {
+                startX = event.x;
                 startY = event.y;
                 if (event.button === Qt.RightButton)
                     root.requestToggleExpand(!root.expanded);
                 else if (event.button === Qt.MiddleButton)
                     modelData?.close();
+            }
+            onClicked: event => {
+                if (event.button !== Qt.LeftButton)
+                    return;
+
+                // Drags (swipe-to-dismiss, drag-to-expand) also release
+                // here; only a near-stationary press counts as a click.
+                if (Math.hypot(event.x - startX, event.y - startY) > 12)
+                    return;
+
+                root.requestToggleExpand(!root.expanded);
             }
             onPositionChanged: event => {
                 if (pressed && !root.expanded) {

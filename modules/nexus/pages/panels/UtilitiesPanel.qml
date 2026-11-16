@@ -135,12 +135,30 @@ PageBase {
         }
 
         ToggleRow {
+            text: Tr.tr("Night mode")
+            subtext: Tr.tr("Warm the screen colours")
+            disabled: !Config.utilities.cards.quickToggles
+            checked: root.isToggleOn("night")
+            onToggled: root.setToggleOn("night", checked)
+        }
+
+        ToggleRow {
             last: true
             text: Tr.tr("VPN")
             subtext: Tr.tr("Connect or disconnect the VPN")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("vpn")
             onToggled: root.setToggleOn("vpn", checked)
+        }
+
+        ToggleRow {
+            text: Tr.tr("Restart Caelestia")
+            subtext: Tr.tr("Restart the Caelestia shell")
+            disabled: !Config.utilities.cards.quickToggles
+            checked: false
+            onToggled: {
+                if (checked) Radial.restartShell()
+            }
         }
     }
 }

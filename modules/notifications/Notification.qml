@@ -12,7 +12,7 @@ import qs.components.effects
 import qs.services
 import qs.utils
 
-StyledRect {
+GlassSurface {
     id: root
 
     required property NotifData modelData
@@ -23,7 +23,8 @@ StyledRect {
     property bool expanded: Config.notifs.openExpanded
 
     color: root.modelData.urgency === NotificationUrgency.Critical ? Colours.palette.m3secondaryContainer : Colours.tPalette.m3surfaceContainer
-    radius: Tokens.rounding.large
+    componentName: "notifications"
+    radiusGroup: "card"
 
     implicitHeight: inner.implicitHeight
 
@@ -41,6 +42,7 @@ StyledRect {
     }
 
     MouseArea {
+        property int startX
         property int startY
 
         anchors.fill: parent
@@ -60,6 +62,7 @@ StyledRect {
 
         onPressed: event => {
             root.modelData.timer.stop();
+            startX = event.x;
             startY = event.y;
             if (event.button === Qt.MiddleButton)
                 root.modelData.close();
@@ -81,12 +84,23 @@ StyledRect {
             }
         }
         onClicked: event => {
-            if (!GlobalConfig.notifs.actionOnClick || event.button !== Qt.LeftButton)
+            if (event.button !== Qt.LeftButton)
+                return;
+
+            // Drags (swipe-to-dismiss, drag-to-expand) also release here;
+            // only a near-stationary press counts as a click.
+            if (Math.hypot(event.x - startX, event.y - startY) > 12)
                 return;
 
             const actions = root.modelData.actions;
-            if (actions.length === 1)
+            if (GlobalConfig.notifs.actionOnClick && actions.length === 1) {
                 actions[0].invoke();
+                return;
+            }
+
+            // Otherwise the click expands/collapses the full body and,
+            // when present, the action buttons.
+            root.expanded = !root.expanded;
         }
 
         Item {
@@ -115,7 +129,7 @@ StyledRect {
                 height: TokenConfig.sizes.notifs.image
                 visible: root.hasImage || root.hasAppIcon
 
-                sourceComponent: ClipRect {
+                sourceComponent: StyledClippingRect {
                     radius: Tokens.rounding.full
                     color: root.modelData.urgency === NotificationUrgency.Critical ? Colours.palette.m3error : root.modelData.urgency === NotificationUrgency.Low ? Colours.layer(Colours.palette.m3surfaceContainerHighest, 2) : Colours.palette.m3secondaryContainer
                     implicitWidth: TokenConfig.sizes.notifs.image

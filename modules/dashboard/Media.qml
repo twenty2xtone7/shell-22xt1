@@ -1,3 +1,4 @@
+import "media"
 import QtQuick
 import QtQuick.Layouts
 import M3Shapes
@@ -5,7 +6,6 @@ import Caelestia.Config
 import Caelestia.I18n
 import qs.components
 import qs.services
-import qs.modules.dashboard.media
 
 Item {
     id: root
@@ -27,6 +27,7 @@ Item {
         CoverVisualiser {
             Layout.fillHeight: true
             implicitWidth: Tokens.sizes.dashboard.mediaSectionWidth
+            screenState: root.screenState
         }
 
         Item {
@@ -84,7 +85,7 @@ Item {
 
                 anchors.centerIn: parent
                 anchors.horizontalCenterOffset: -Tokens.padding.extraLarge * 2
-                asynchronous: true
+                asynchronous: false
                 active: opacity > 0
                 opacity: 0
 
@@ -131,7 +132,7 @@ Item {
                 id: content
 
                 anchors.fill: parent
-                asynchronous: true
+                asynchronous: false
                 active: opacity > 0
 
                 sourceComponent: RowLayout {

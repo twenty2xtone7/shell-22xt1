@@ -57,7 +57,7 @@ StyledRect {
     implicitHeight: nonAnimHeight
 
     clip: true
-    radius: Tokens.rounding.large
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
     color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
 
     Behavior on implicitHeight {
@@ -117,13 +117,13 @@ StyledRect {
                 }
             }
 
-            ClipRect {
+            StyledClippingRect {
                 anchors.fill: parent
                 color: root.urgency === NotificationUrgency.Critical ? Colours.palette.m3error : root.urgency === NotificationUrgency.Low ? Colours.layer(Colours.palette.m3surfaceContainerHigh, 3) : Colours.palette.m3secondaryContainer
                 radius: Tokens.rounding.full
 
                 Loader {
-                    asynchronous: true
+                    asynchronous: false
                     anchors.centerIn: parent
                     anchors.verticalCenterOffset: sourceComponent === materialIconComp ? 1 : 0
                     sourceComponent: root.image ? imageComp : root.appIcon ? appIconComp : materialIconComp
@@ -131,7 +131,7 @@ StyledRect {
             }
 
             Loader {
-                asynchronous: true
+                asynchronous: false
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 active: root.appIcon && root.image

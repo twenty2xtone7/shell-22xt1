@@ -10,6 +10,7 @@ import qs.components
 import qs.components.controls
 import qs.components.effects
 import qs.services
+import qs.utils
 
 Loader {
     id: root
@@ -17,7 +18,7 @@ Loader {
     required property var props
     required property matrix4x4 deformMatrix
 
-    asynchronous: true
+    asynchronous: false
     anchors.fill: parent
 
     opacity: root.props.recordingConfirmDelete ? 1 : 0
@@ -53,7 +54,7 @@ Loader {
 
                 anchors.fill: parent
                 preferredRendererType: Shape.CurveRenderer
-                asynchronous: true
+                asynchronous: false
 
                 // Bottom left
                 ShapePath {
@@ -139,7 +140,7 @@ Loader {
 
         StyledRect {
             anchors.centerIn: parent
-            radius: Tokens.rounding.extraLarge
+            radius: LiquidGlass.enabled ? LiquidGlass.popupRadius : Tokens.rounding.extraLarge
             color: Colours.palette.m3surfaceContainerHigh
 
             scale: 0
@@ -196,6 +197,9 @@ Loader {
                         type: TextButton.Text
                         onClicked: {
                             CUtils.deleteFile(Qt.resolvedUrl(root.props.recordingConfirmDelete));
+                            // Drop the cached thumbnail next to the recording.
+                            const thumbBase = root.props.recordingConfirmDelete.split("/").pop().replace(/\.mp4$/i, "");
+                            CUtils.deleteFile(Qt.resolvedUrl(`${Paths.cache}/record-thumbs/${thumbBase}.png`));
                             root.props.recordingConfirmDelete = "";
                         }
                     }

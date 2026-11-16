@@ -8,7 +8,6 @@ import Quickshell.Services.Notifications
 import Caelestia
 import Caelestia.Config
 import Caelestia.I18n
-import Caelestia.State
 import qs.components.misc
 import qs.services
 import qs.utils
@@ -19,6 +18,7 @@ Singleton {
     property list<NotifData> list: []
     readonly property list<NotifData> notClosed: list.filter(n => !n.closed)
     readonly property list<NotifData> popups: list.filter(n => n.popup)
+    property alias dnd: props.dnd
 
     property bool loaded
 
@@ -31,30 +31,26 @@ Singleton {
     }
 
     function shouldShowPopup(): bool {
-        if (PersistentState.doNotDisturb || ShellState.anySidebarOpen())
+        if (props.dnd || ShellState.anySidebarOpen())
             return false;
         if (GlobalConfig.notifs.fullscreen === NotifsFullscreen.Off && hasFullscreen())
             return false;
         return true;
     }
 
+    onDndChanged: {
+        if (!GlobalConfig.utilities.toasts.dndChanged)
+            return;
+
+        if (dnd)
+            Toaster.toast(Tr.tr("Do not disturb enabled"), Tr.tr("Popup notifications are now disabled"), "do_not_disturb_on");
+        else
+            Toaster.toast(Tr.tr("Do not disturb disabled"), Tr.tr("Popup notifications are now enabled"), "do_not_disturb_off");
+    }
+
     onListChanged: {
         if (loaded)
             saveTimer.restart();
-    }
-
-    Connections {
-        function onDoNotDisturbChanged(): void {
-            if (!GlobalConfig.utilities.toasts.dndChanged)
-                return;
-
-            if (PersistentState.doNotDisturb)
-                Toaster.toast(Tr.tr("Do not disturb enabled"), Tr.tr("Popup notifications are now disabled"), "do_not_disturb_on");
-            else
-                Toaster.toast(Tr.tr("Do not disturb disabled"), Tr.tr("Popup notifications are now enabled"), "do_not_disturb_off");
-        }
-
-        target: PersistentState
     }
 
     Timer {
@@ -75,6 +71,29 @@ Singleton {
                     hasActionIcons: n.hasActionIcons,
                     actions: n.actions
                 }))))
+    }
+
+    // ponytail: shared timer updates all notification timestamps
+    Timer {
+        id: sharedTimeStrTimer
+
+        running: root.list.length > 0
+        repeat: true
+        interval: 5000
+        onTriggered: {
+            for (const n of root.list) {
+                if (!n.closed)
+                    n.updateTimeStr();
+            }
+        }
+    }
+
+    PersistentProperties {
+        id: props
+
+        property bool dnd
+
+        reloadableId: "notifs"
     }
 
     NotificationServer {
@@ -127,47 +146,60 @@ Singleton {
         }
     }
 
+    // Bulk removal: snapshot, single reset, then teardown. Per-item
+    // close() reassigns the whole list on EVERY notification (O(n²) filter
+    // churn + binding storms + one slide animation + destroy + D-Bus
+    // dismiss each), which freezes the shell at 100-200 items. This path
+    // resets every view exactly once; teardown below is a single O(n)
+    // pass with no per-item animations or intermediate layouts.
+    // Pass match to clear only items it accepts (e.g. one app group).
+    function clearAll(match) {
+        if (list.length === 0)
+            return;
+        const doomed = [];
+        const kept = [];
+        for (const n of list) {
+            if (match === undefined || match === null || match(n))
+                doomed.push(n);
+            else
+                kept.push(n);
+        }
+        if (doomed.length === 0)
+            return;
+        list = kept;
+        for (const n of doomed) {
+            n.notification?.dismiss();
+            n.destroy();
+        }
+    }
+
     // qmllint disable unresolved-type
     CustomShortcut {
         // qmllint enable unresolved-type
         name: "clearNotifs"
         description: "Clear all notifications"
-        onPressed: {
-            for (const notif of root.list.slice())
-                notif.close();
-        }
-    }
-
-    // qmllint disable unresolved-type
-    CustomShortcut {
-        // qmllint enable unresolved-type
-        name: "toggleDnd"
-        description: "Toggle do not disturb"
-        onPressed: {
-            PersistentState.doNotDisturb = !PersistentState.doNotDisturb;
-        }
+        onPressed: root.clearAll()
     }
 
     IpcHandler {
         function clear(): void {
-            for (const notif of root.list.slice())
-                notif.close();
+            root.clearAll();
         }
 
         function isDndEnabled(): bool {
-            return PersistentState.doNotDisturb;
+            return props.dnd;
         }
 
         function toggleDnd(): void {
-            PersistentState.doNotDisturb = !PersistentState.doNotDisturb;
+            props.dnd = !props.dnd;
         }
 
         function enableDnd(): void {
-            PersistentState.doNotDisturb = true;
+            props.dnd = true;
         }
 
         function disableDnd(): void {
-            PersistentState.doNotDisturb = false;
+            props.dnd = false;
         }
 
         target: "notifs"

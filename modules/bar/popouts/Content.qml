@@ -1,12 +1,12 @@
 pragma ComponentBehavior: Bound
 
+import "./kblayout"
 import QtQuick
 import Quickshell
 import Quickshell.Services.SystemTray
 import Caelestia.Config
 import qs.components
 import qs.services
-import qs.modules.bar.popouts.kblayout
 
 Item {
     id: root
@@ -124,6 +124,13 @@ Item {
             sourceComponent: LockStatus {}
         }
 
+        Popout {
+            name: "barposition"
+            sourceComponent: BarPosition {
+                popouts: root.popouts
+            }
+        }
+
         Repeater {
             model: ScriptModel {
                 values: SystemTray.items.values.filter(i => i.hasMenu && i.status !== Status.Passive && !GlobalConfig.bar.tray.hiddenIcons.includes(i.id))
@@ -153,7 +160,7 @@ Item {
 
                     TrayMenu {
                         popouts: root.popouts
-                        trayItem: trayMenu.modelData.menu // qmllint disable incompatible-type
+                        trayItem: trayMenu.modelData.menu // qmllint disable unresolved-type
                     }
                 }
             }

@@ -31,6 +31,18 @@ Item {
     readonly property bool shouldBeActive: screenState.dashboard && Config.dashboard.enabled
     property real offsetScale: shouldBeActive ? 0 : 1
 
+    // The dashboard used to be created on every open and destroyed on every close,
+    // so the first frame of the opening animation always paid full component
+    // construction on the GUI thread. Warm it once after startup instead: boot stays
+    // fast, opens become free.
+    property bool warmed: false
+
+    Timer {
+        interval: 2500
+        running: !root.warmed
+        onTriggered: root.warmed = true
+    }
+
     visible: offsetScale < 1
     anchors.topMargin: (-implicitHeight - 5) * offsetScale
     implicitHeight: content.implicitHeight
@@ -47,7 +59,8 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
 
-        active: root.shouldBeActive || root.visible
+        asynchronous: false
+        active: root.warmed || root.shouldBeActive || root.visible
 
         sourceComponent: Content {
             screenState: root.screenState

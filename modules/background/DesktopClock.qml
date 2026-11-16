@@ -5,9 +5,9 @@ import QtQuick.Effects
 import QtQuick.Layouts
 import Caelestia.Config
 import Caelestia.I18n
-import Caelestia.State
 import qs.components
 import qs.services
+import Caelestia.State
 
 Item {
     id: root

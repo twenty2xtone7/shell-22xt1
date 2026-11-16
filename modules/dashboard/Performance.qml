@@ -1,3 +1,4 @@
+import "performance"
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
@@ -6,7 +7,6 @@ import Caelestia.I18n
 import Caelestia.Services
 import qs.components
 import qs.services
-import qs.modules.dashboard.performance
 
 Item {
     id: root
@@ -19,7 +19,7 @@ Item {
 
         anchors.centerIn: parent
         active: !Config.dashboard.performance.showCpu && !(Config.dashboard.performance.showGpu && Gpu.type !== GpuType.None) && !Config.dashboard.performance.showMemory && !Config.dashboard.performance.showStorage && !Config.dashboard.performance.showNetwork && !(UPower.displayDevice.isLaptopBattery && Config.dashboard.performance.showBattery)
-        asynchronous: true
+        asynchronous: false
 
         sourceComponent: ColumnLayout {
             spacing: Tokens.spacing.medium

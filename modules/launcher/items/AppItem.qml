@@ -12,6 +12,9 @@ Item {
 
     required property DesktopEntry modelData
     required property ScreenState screenState
+    // The owning AppList (has .search + .screenState). Optional so previews
+    // outside the list still work; the detail panel / uninstall needs it.
+    property var list: null
 
     implicitHeight: Tokens.sizes.launcher.itemHeight
 
@@ -19,10 +22,23 @@ Item {
     anchors.right: parent?.right
 
     StateLayer {
-        radius: Tokens.rounding.large
+        radius: LiquidGlass.enabled ? LiquidGlass.controlRadius : Tokens.rounding.large
         onClicked: {
             Apps.launch(root.modelData);
             root.screenState.launcher = false;
+        }
+    }
+
+    // Right-click = detail panel (launch / uninstall / favourite / hide).
+    // Left clicks are not accepted here, so they fall through to the
+    // StateLayer above, mirroring CommandItem's right-click pattern.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+            if (root.modelData)
+                Uninstall.openPanel(root.modelData, root.list ?? root.screenState);
         }
     }
 
@@ -47,7 +63,9 @@ Item {
             anchors.leftMargin: Tokens.spacing.medium
             anchors.verticalCenter: icon.verticalCenter
 
-            implicitWidth: parent.width - icon.width - favouriteIcon.width
+            readonly property real trailingWidth: favouriteIcon.width
+
+            implicitWidth: parent.width - icon.width - trailingWidth
             implicitHeight: name.implicitHeight + comment.implicitHeight
 
             StyledText {
@@ -65,7 +83,7 @@ Item {
                 color: Colours.palette.m3outline
 
                 elide: Text.ElideRight
-                width: root.width - icon.width - favouriteIcon.width - Tokens.rounding.extraLargeIncreased
+                width: root.width - icon.width - parent.trailingWidth - Tokens.rounding.extraLargeIncreased
 
                 anchors.top: name.bottom
             }

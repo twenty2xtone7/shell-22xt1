@@ -8,6 +8,7 @@ import Caelestia
 import Caelestia.Config
 import Caelestia.I18n
 import Caelestia.Services
+import qs.components.misc
 
 Singleton {
     id: root
@@ -28,8 +29,17 @@ Singleton {
     readonly property bool sourceMuted: !!source?.audio?.muted
     readonly property real sourceVolume: source?.audio?.volume ?? 0
 
-    readonly property alias cava: cava
-    readonly property alias beatTracker: beatTracker
+    property int visualiserUsers: 0
+    readonly property CavaProvider cava: cavaLoader.item as CavaProvider
+    readonly property BeatTracker beatTracker: beatLoader.item as BeatTracker
+
+    function acquireVisualiser(): void {
+        visualiserUsers++;
+    }
+
+    function releaseVisualiser(): void {
+        visualiserUsers = Math.max(0, visualiserUsers - 1);
+    }
 
     function setVolume(newVolume: real): void {
         if (sink?.ready && sink?.audio) {
@@ -44,6 +54,22 @@ Singleton {
 
     function decrementVolume(amount: real): void {
         setVolume(volume - (amount || GlobalConfig.services.audioIncrement));
+    }
+
+    readonly property bool boostEnabled: GlobalConfig.services.maxVolume > 1
+
+    function setBoostEnabled(enabled: bool): void {
+        if (enabled) {
+            GlobalConfig.services.maxVolume = 1.5;
+        } else {
+            GlobalConfig.services.maxVolume = 1;
+            if (volume > 1)
+                setVolume(1);
+        }
+    }
+
+    function toggleBoost(): void {
+        setBoostEnabled(!boostEnabled);
     }
 
     function setSourceVolume(newVolume: real): void {
@@ -63,6 +89,11 @@ Singleton {
 
     function setAudioSink(newSink: PwNode): void {
         Pipewire.preferredDefaultAudioSink = newSink;
+        // Changing the default only routes NEW streams; anything already
+        // playing (e.g. the music player) stays pinned to the old sink.
+        // Move existing sink-inputs over so sound actually follows.
+        if (newSink?.name)
+            Quickshell.execDetached(["sh", "-c", 'for i in $(pactl list short sink-inputs 2>/dev/null | cut -f1); do pactl move-sink-input "$i" "$1" >/dev/null 2>&1; done', "move-sinks", newSink.name]);
     }
 
     function setAudioSource(newSource: PwNode): void {
@@ -73,7 +104,16 @@ Singleton {
         if (sinks.length === 0)
             return;
 
-        const currentIndex = sinks.findIndex(s => s === sink);
+        // Compare by id: Pipewire.defaultAudioSink isn't guaranteed to be
+        // the identical object instance as the entry in sinks, so identity
+        // comparison can stick at index 0 forever.
+        let currentIndex = -1;
+        for (let i = 0; i < sinks.length; i++) {
+            if (sinks[i]?.id === sink?.id) {
+                currentIndex = i;
+                break;
+            }
+        }
         const nextIndex = (currentIndex + 1) % sinks.length;
         setAudioSink(sinks[nextIndex]);
     }
@@ -173,14 +213,20 @@ Singleton {
         objects: [root.sink, root.source, ...root.sinks, ...root.sources, ...root.streams].filter(n => n)
     }
 
-    CavaProvider {
-        id: cava
+    Loader {
+        id: cavaLoader
 
-        bars: GlobalConfig.services.visualiserBars
+        active: root.visualiserUsers > 0
+        sourceComponent: CavaProvider {
+            bars: GlobalConfig.services.visualiserBars
+        }
     }
 
-    BeatTracker {
-        id: beatTracker
+    Loader {
+        id: beatLoader
+
+        active: root.visualiserUsers > 0
+        sourceComponent: BeatTracker {}
     }
 
     IpcHandler {
@@ -189,5 +235,21 @@ Singleton {
         }
 
         target: "audio"
+    }
+
+    // qmllint disable unresolved-type
+    CustomShortcut {
+        // qmllint enable unresolved-type
+        name: "volumeUp"
+        description: "Increase volume"
+        onPressed: root.incrementVolume()
+    }
+
+    // qmllint disable unresolved-type
+    CustomShortcut {
+        // qmllint enable unresolved-type
+        name: "volumeDown"
+        description: "Decrease volume"
+        onPressed: root.decrementVolume()
     }
 }

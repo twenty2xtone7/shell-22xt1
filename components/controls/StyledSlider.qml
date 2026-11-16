@@ -19,6 +19,11 @@ Slider {
     property bool interactionOnMove: true
     readonly property bool dragging: mouse.pressed
 
+    // Magnetic snapping grid in value units (e.g. 100 snaps 1142 -> 1100).
+    // 0 (default) keeps the slider continuous; existing users are unaffected.
+    // Named snapStep because the base Slider already owns final property stepSize.
+    property real snapStep: 0
+
     property color fgColour: enabled ? Colours.palette.m3primary : Qt.alpha(Colours.palette.m3onSurface, 0.38)
     property color bgColour: enabled ? Colours.palette.m3secondaryContainer : Qt.alpha(Colours.palette.m3onSurface, 0.1)
 
@@ -26,6 +31,18 @@ Slider {
     property real filledWidth
 
     signal interaction(v: real)
+
+    // Snap a normalised 0..1 position to the step grid, then clamp to [from, to].
+    // Snapping in value domain keeps it consistent for any range/step combo.
+    function snapPosition(normPos: real): real {
+        const norm = CUtils.clamp(normPos, 0, 1);
+        if (!(snapStep > 0) || to <= from)
+            return norm;
+        const raw = from + norm * (to - from);
+        const snapped = Math.round(raw / snapStep) * snapStep;
+        const clamped = CUtils.clamp(snapped, from, to);
+        return (clamped - from) / (to - from);
+    }
 
     Component.onCompleted: filledWidth = Qt.binding(() => (width - handle.implicitWidth - handle.anchors.leftMargin) * pos)
 
@@ -174,12 +191,12 @@ Slider {
         onPositionChanged: e => {
             dragMovement = (e.x - pressStartX) / width;
             if (root.interactionOnMove)
-                root.interaction(posBinding.value);
+                root.interaction(root.snapPosition(posBinding.value));
         }
         onReleased: e => {
             const clickPos = e.x / width;
             const finalPos = mouse.dragMovement !== 0 ? posBinding.value : CUtils.clamp(clickPos, 0, 1);
-            root.interaction(finalPos);
+            root.interaction(root.snapPosition(finalPos));
             widthBehavior.enabled = true;
             dragMovement = 0;
         }

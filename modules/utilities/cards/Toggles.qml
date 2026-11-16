@@ -6,12 +6,12 @@ import Quickshell.Bluetooth
 import Caelestia.Components
 import Caelestia.Config
 import Caelestia.I18n
-import Caelestia.State
 import qs.components
 import qs.components.controls
 import qs.services
 import qs.modules.nexus
 import qs.modules.bar.popouts as BarPopouts
+import Caelestia.State
 
 StyledRect {
     id: root
@@ -23,13 +23,16 @@ StyledRect {
         const seenIds = new Set();
 
         return Config.utilities.quickToggles.values.filter(item => {
-            if (!item.enabled || seenIds.has(item.id))
+            if (!item.enabled)
                 return false;
 
-            // TODO: hide wallpaper playing toggle if wallpaper is live
+            if (seenIds.has(item.id)) {
+                return false;
+            }
 
-            if (item.id === "vpn")
+            if (item.id === "vpn") {
                 return GlobalConfig.utilities.vpn.selectedProvider.length > 0;
+            }
 
             seenIds.add(item.id);
             return true;
@@ -38,10 +41,17 @@ StyledRect {
     readonly property int splitIndex: Math.ceil(quickToggles.length / 2)
     readonly property bool needExtraRow: quickToggles.length > 6
 
+    // Night intensity panel expansion (right-click the night toggle)
+    property bool nightExpanded: false
+
     implicitHeight: layout.implicitHeight + Tokens.padding.extraLargeIncreased
 
-    radius: Tokens.rounding.large
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
     color: Colours.tPalette.m3surfaceContainer
+
+    Behavior on implicitHeight {
+        Anim {}
+    }
 
     ColumnLayout {
         id: layout
@@ -63,6 +73,97 @@ StyledRect {
             visible: root.needExtraRow
             model: root.needExtraRow ? root.quickToggles.slice(root.splitIndex) : []
         }
+
+        // Night mode intensity panel: expands on right-click of the night toggle
+        Loader {
+            id: nightPanel
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.nightExpanded && item ? item.implicitHeight : 0
+            opacity: root.nightExpanded ? 1 : 0
+            active: opacity > 0
+            visible: active
+            asynchronous: false
+
+            Behavior on Layout.preferredHeight {
+                Anim {
+                    type: Anim.Emphasized
+                }
+            }
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+
+            sourceComponent: ColumnLayout {
+                spacing: Tokens.spacing.small
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Tokens.spacing.small
+
+                    StyledText {
+                        text: Tr.tr("Intensity")
+                        font: Tokens.font.body.medium
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    StyledText {
+                        text: Tr.trCtx("%1K · %2", "night mode temperature and preset").arg(Night.temperature).arg(root.presetName())
+                        color: Colours.palette.m3onSurfaceVariant
+                        font: Tokens.font.body.small
+                    }
+                }
+
+                StyledSlider {
+                    id: tempSlider
+
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Tokens.padding.medium
+
+                    from: 1000
+                    to: 6500
+                    snapStep: 100
+                    value: Night.temperature
+                    onInteraction: v => Night.temperature = Math.round(tempSlider.from + v * (tempSlider.to - tempSlider.from))
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Tokens.spacing.small
+
+                    Repeater {
+                        model: Night.presets
+
+                        TextButton {
+                            required property var modelData
+
+                            Layout.fillWidth: true
+                            type: Night.temperature === modelData.temperature ? TextButton.Filled : TextButton.Tonal
+                            verticalPadding: Tokens.padding.extraSmall
+                            font: Tokens.font.body.small
+                            text: Tr.trCtx("%1K", "night mode preset temperature").arg(modelData.temperature)
+                            onClicked: {
+                                Night.temperature = modelData.temperature;
+                                Night.enabled = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function presetName(): string {
+        for (const preset of Night.presets)
+            if (Math.abs(preset.temperature - Night.temperature) < 50)
+                return preset.name;
+        return Tr.tr("Custom");
     }
 
     component QuickToggleRow: ButtonRow {
@@ -89,9 +190,9 @@ StyledRect {
                     roleValue: "bluetooth"
                     delegate: Toggle {
                         icon: "bluetooth"
-                        checked: Bluetooth.defaultAdapter?.enabled ?? false
+                        checked: Bluetooth.defaultAdapter?.enabled ?? false // qmllint disable unresolved-type
                         onClicked: {
-                            const adapter = Bluetooth.defaultAdapter;
+                            const adapter = Bluetooth.defaultAdapter; // qmllint disable unresolved-type
                             if (adapter)
                                 adapter.enabled = !adapter.enabled;
                         }
@@ -130,19 +231,28 @@ StyledRect {
                     }
                 }
                 DelegateChoice {
-                    roleValue: "wallpaperPlaying"
-                    delegate: Toggle {
-                        icon: "smart_display"
-                        checked: PersistentState.wallpaperPlaying
-                        onClicked: PersistentState.wallpaperPlaying = !PersistentState.wallpaperPlaying
-                    }
-                }
-                DelegateChoice {
                     roleValue: "dnd"
                     delegate: Toggle {
                         icon: "notifications_off"
-                        checked: PersistentState.doNotDisturb
-                        onClicked: PersistentState.doNotDisturb = !PersistentState.doNotDisturb
+                        checked: Notifs.dnd
+                        onClicked: Notifs.dnd = !Notifs.dnd
+                    }
+                }
+                DelegateChoice {
+                    roleValue: "night"
+                    delegate: Toggle {
+                        icon: "bedtime"
+                        checked: Night.enabled
+                        onClicked: Night.toggle()
+
+                        // Right-click expands the intensity panel; left-click only toggles.
+                        // StateLayer only accepts left clicks, so this never swallows them.
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.RightButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.nightExpanded = !root.nightExpanded
+                        }
                     }
                 }
                 DelegateChoice {
@@ -154,6 +264,15 @@ StyledRect {
                         isToggle: VPN.status.state !== "needs-auth" && VPN.status.state !== "error"
                         inactiveOnColour: Colours.palette.m3onSurfaceVariant
                         onClicked: VPN.toggle()
+                    }
+                }
+                DelegateChoice {
+                    roleValue: "restart"
+                    delegate: Toggle {
+                        icon: "refresh"
+                        inactiveOnColour: Colours.palette.m3onSurfaceVariant
+                        isToggle: false
+                        onClicked: Radial.restartShell()
                     }
                 }
             }

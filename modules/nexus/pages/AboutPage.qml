@@ -20,33 +20,34 @@ PageBase {
 
     title: Tr.tr("About")
 
+    // One-shot version lookups. Plain Process is enough: the page is created
+    // once per Nexus visit, so there is nothing to coalesce or cache.
+    Process {
+        running: true
+        command: ["quickshell", "--version"]
+
+        stdout: StdioCollector {
+            onStreamFinished: root.quickshellVersion = text.trim().split(" ")[1] ?? ""
+        }
+    }
+
+    Process {
+        running: true
+        command: ["sh", "-c", "caelestia --version 2>/dev/null"]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const m = text.match(/caelestia-cli\S*\s+(\d+(?:\.\d+)*)/);
+                root.cliVersion = m ? m[1] : "";
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
-
-        // e.g. "Quickshell 0.3.0 (revision ...)"
-        Process {
-            running: true
-            command: ["quickshell", "--version"]
-            stdout: StdioCollector {
-                onStreamFinished: root.quickshellVersion = text.trim().split(" ")[1] ?? ""
-            }
-        }
-
-        // Parsed from the caelestia CLI's package listing; the sh wrapper avoids a
-        // warning when the (optional) CLI isn't installed
-        Process {
-            running: true
-            command: ["sh", "-c", "caelestia --version 2>/dev/null"]
-            stdout: StdioCollector {
-                onStreamFinished: {
-                    const m = text.match(/caelestia-cli\S*\s+(\d+(?:\.\d+)*)/);
-                    root.cliVersion = m ? m[1] : "";
-                }
-            }
-        }
 
         // Hero
         ConnectedRect {
@@ -71,7 +72,7 @@ PageBase {
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: Tokens.spacing.small
-                    text: "Caelestia"
+                    text: Tr.tr("Caelestia")
                     font: Tokens.font.headline.builders.large.width(110).build()
                 }
 

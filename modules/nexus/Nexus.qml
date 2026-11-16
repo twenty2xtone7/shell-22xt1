@@ -20,8 +20,8 @@ Item {
 
     signal close
 
-    implicitWidth: Math.round(implicitHeight * Tokens.sizes.nexus.ratio)
-    implicitHeight: Math.round(nState.screen.height * Tokens.sizes.nexus.heightMult)
+    implicitWidth: nState.chatMode ? Math.round(Math.min(nState.screen.width * 0.88, implicitHeight * 1.45)) : Math.round(implicitHeight * Tokens.sizes.nexus.ratio)
+    implicitHeight: Math.round(nState.screen.height * (nState.chatMode ? Math.max(Tokens.sizes.nexus.heightMult, 0.84) : Tokens.sizes.nexus.heightMult))
 
     Behavior on blobColour {
         CAnim {}
@@ -44,7 +44,7 @@ Item {
         opacity: root.blobColour.a
         radius: Tokens.rounding.large
 
-        borderLeft: navPane.width + navPane.anchors.margins * 2
+        borderLeft: nState.chatMode ? Tokens.padding.medium : navPane.width + navPane.anchors.margins * 2
         borderRight: Tokens.padding.medium
         borderTop: Tokens.padding.medium
         borderBottom: Tokens.padding.medium
@@ -91,16 +91,18 @@ Item {
     NavPane {
         id: navPane
 
+        visible: !nState.chatMode
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.margins: Tokens.padding.large
 
         nState: nState
-        width: Math.min(Tokens.sizes.nexus.maxNavWidth, Math.round(root.width / 3))
+        width: nState.chatMode ? 0 : Math.min(Tokens.sizes.nexus.maxNavWidth, Math.round(root.width / 3))
     }
 
     Pages {
+        visible: !nState.chatMode
         anchors.left: navPane.right
         anchors.right: parent.right
         anchors.top: parent.top
@@ -109,5 +111,21 @@ Item {
         anchors.margins: Tokens.padding.extraLarge
 
         nState: nState
+    }
+
+    Loader {
+        id: chatLoader
+
+        active: nState.chatMode
+        visible: nState.chatMode
+        anchors.fill: parent
+        anchors.topMargin: windowBtnRect.height + Tokens.padding.medium
+        anchors.leftMargin: Tokens.padding.extraLarge
+        anchors.rightMargin: Tokens.padding.extraLarge
+        anchors.bottomMargin: Tokens.padding.extraLarge
+
+        sourceComponent: ChatPage {
+            nState: root.nState
+        }
     }
 }

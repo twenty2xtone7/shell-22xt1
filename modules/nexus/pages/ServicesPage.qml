@@ -23,7 +23,7 @@ PageBase {
             text: "LRCLIB"
         },
         MenuItem {
-            text: "NetEase"
+             text: "NetEase"
         }
     ]
 
@@ -180,6 +180,44 @@ PageBase {
             to: 200
             stepSize: 5
             onMoved: v => GlobalConfig.services.maxVolume = v / 100
+        }
+
+        // Night mode
+        SectionHeader {
+            text: Tr.tr("Night mode")
+        }
+
+        ToggleRow {
+            first: true
+            text: Tr.tr("Night mode")
+            subtext: Tr.tr("Warm the screen colours (requires hyprsunset)")
+            checked: Night.enabled
+            onToggled: Night.enabled = checked
+        }
+
+        StepperRow {
+            last: true
+            label: Tr.tr("Temperature")
+            subtext: Tr.tr("Screen warmth in Kelvin (lower is warmer)")
+            value: Night.temperature
+            from: 1000
+            to: 6500
+            stepSize: 100
+            onMoved: v => Night.temperature = Math.round(v)
+        }
+
+        // Radial menu
+        SectionHeader {
+            text: Tr.tr("Radial menu")
+        }
+
+        NavRow {
+            first: true
+            last: true
+            icon: "radial"
+            text: Tr.tr("Radial menu")
+            subtext: Tr.tr("Items, radius, position")
+            onClicked: root.nState.openSubPage(2)
         }
 
         // Service tuning

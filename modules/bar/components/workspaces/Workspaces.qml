@@ -10,7 +10,7 @@ import Caelestia.Config
 import qs.components
 import qs.services
 
-ClipRect {
+StyledClippingRect {
     id: root
 
     required property ShellScreen screen
@@ -18,9 +18,10 @@ ClipRect {
 
     readonly property HyprlandMonitor monitor: Hypr.monitorFor(screen)
     readonly property bool onSpecial: monitor?.lastIpcObject.specialWorkspace?.name !== ""
-    readonly property int activeWsId: monitor.activeWorkspace?.id ?? 1
+    readonly property int activeWsId: Hypr.activeWsId
     readonly property int activeWsIdx: workspaceIndex(activeWsId)
     readonly property int shown: Math.max(1, Config.bar.workspaces.shown)
+    readonly property bool horizontal: BarState.horizontal
 
     readonly property var wsIds: {
         if (Config.bar.workspaces.showUnoccupied)
@@ -41,10 +42,20 @@ ClipRect {
         return workspaces.slice(start, end).map(w => w.id);
     }
 
-    readonly property var workspaces: {
-        CUtils.dependency(workspaces.itemsDirty);
-        return wsIds.map(id => workspaces.itemAtIndex(workspaceIndex(id)));
+    readonly property var vlistWorkspaces: {
+        vlist.itemsDirty;
+        return wsIds.map(id => vlist.itemAtIndex(workspaceIndex(id)));
     }
+
+    // Horizontal counterparts of `workspaces`: the Repeater's delegates in model
+    // order. The overlays below read each workspace's x/width from these the
+    // same way the vertical ones read y/height from the lazy list.
+    readonly property var hrowWorkspaces: {
+        root.activeWsIdx;
+        return root.wsIds.map((_, i) => hrepeater.itemAt(i));
+    }
+    readonly property var wsItems: root.horizontal ? root.hrowWorkspaces : root.vlistWorkspaces
+    readonly property int wsSpacing: root.horizontal ? hrow.spacing : vlist.spacing
 
     // Only relevant for when showUnoccupied is true
     readonly property int groupOffset: {
@@ -65,8 +76,8 @@ ClipRect {
         return index % shown;
     }
 
-    implicitWidth: Tokens.sizes.bar.innerWidth
-    implicitHeight: workspaces.layoutHeight + workspaces.anchors.margins * 2
+    implicitWidth: horizontal ? hrow.implicitWidth + Tokens.padding.extraSmall * 2 : Tokens.sizes.bar.innerWidth
+    implicitHeight: horizontal ? Tokens.sizes.bar.innerWidth : vlist.layoutHeight + vlist.anchors.margins * 2
 
     color: Colours.tPalette.m3surfaceContainer
     radius: Tokens.rounding.full
@@ -89,12 +100,13 @@ ClipRect {
             opacity: Config.bar.workspaces.occupiedBg ? 1 : 0
             active: opacity > 0
 
-            anchors.fill: parent
-            anchors.margins: Tokens.padding.extraSmall
+            anchors.fill: root.horizontal ? hrow : parent
+            anchors.margins: root.horizontal ? 0 : Tokens.padding.extraSmall
 
             sourceComponent: OccupiedBg {
-                workspaces: root.workspaces
-                wsSpacing: workspaces.spacing
+                workspaces: root.wsItems
+                wsSpacing: root.wsSpacing
+                horizontal: root.horizontal
             }
 
             Behavior on opacity {
@@ -105,7 +117,9 @@ ClipRect {
         }
 
         LazyListView {
-            id: workspaces
+            id: vlist
+
+            visible: !root.horizontal
 
             anchors.left: parent.left
             anchors.right: parent.right
@@ -116,8 +130,12 @@ ClipRect {
             spacing: Tokens.spacing.extraSmall
             removeDuration: Tokens.anim.durations.expressiveDefaultEffects
 
+            // Drop the delegates while the bar is horizontal so the list is
+            // rebuilt from scratch when it becomes the vertical column again.
+            // Otherwise the delegates keep the size they had when the list was
+            // hidden and the column collapses to nothing.
             model: ScriptModel {
-                values: root.wsIds
+                values: root.horizontal ? [] : root.wsIds
             }
 
             delegate: Workspace {
@@ -134,17 +152,49 @@ ClipRect {
             }
         }
 
+        // Horizontal equivalent of the list above. The workspace indicators sit
+        // in a row instead of a lazy vertical list.
+        Row {
+            id: hrow
+
+            visible: root.horizontal
+            anchors.centerIn: parent
+            spacing: Tokens.spacing.extraSmall
+
+            Repeater {
+                id: hrepeater
+
+                model: ScriptModel {
+                    values: root.wsIds
+                }
+
+                delegate: Workspace {
+                    activeWsId: root.activeWsId
+                    ws: Config.bar.workspaces.showUnoccupied ? root.groupOffset + index + 1 : modelData
+                    monitor: root.monitor
+
+                    displayType: Config.bar.workspaces.displayType
+                    showWindows: Config.bar.workspaces.showWindows
+                    iconRules: GlobalConfig.bar.workspaces.workspaceIcons
+                    activeLabel: Config.bar.workspaces.activeLabel
+                    occupiedLabel: Config.bar.workspaces.occupiedLabel
+                    label: Config.bar.workspaces.label
+                }
+            }
+        }
+
         Loader {
             asynchronous: true
-            opacity: Config.bar.workspaces.showUnoccupied ? 0 : 1
+            opacity: !Config.bar.workspaces.showUnoccupied ? 1 : 0
             active: opacity > 0
 
-            anchors.fill: parent
-            anchors.margins: Tokens.padding.extraSmall
+            anchors.fill: root.horizontal ? hrow : parent
+            anchors.margins: root.horizontal ? 0 : Tokens.padding.extraSmall
 
             sourceComponent: GapMarkers {
-                workspaces: root.workspaces
-                wsSpacing: workspaces.spacing
+                workspaces: root.wsItems
+                wsSpacing: root.wsSpacing
+                horizontal: root.horizontal
             }
 
             Behavior on opacity {
@@ -156,23 +206,26 @@ ClipRect {
 
         Loader {
             asynchronous: true
-            anchors.left: workspaces.left
-            anchors.right: workspaces.right
+            anchors.left: root.horizontal ? undefined : vlist.left
+            anchors.right: root.horizontal ? undefined : vlist.right
+            anchors.top: root.horizontal ? hrow.top : undefined
+            anchors.bottom: root.horizontal ? hrow.bottom : undefined
             active: Config.bar.workspaces.activeIndicator
 
             sourceComponent: ActiveIndicator {
+                horizontal: root.horizontal
                 activeWs: {
-                    CUtils.dependency(workspaces.itemsDirty);
-                    return workspaces.itemAtIndex(root.activeWsIdx) as Workspace;
+                    const item = root.horizontal ? root.hrowWorkspaces[root.activeWsIdx] as Workspace : (vlist.itemsDirty, vlist.itemAtIndex(root.activeWsIdx) as Workspace);
+                    return item;
                 }
-                mask: workspaces
+                mask: root.horizontal ? hrow : vlist
             }
         }
 
         MouseArea {
-            anchors.fill: workspaces
+            anchors.fill: root.horizontal ? hrow : vlist
             onClicked: event => {
-                const ws = (workspaces.itemAt(event.x, event.y) as Workspace)?.ws;
+                const ws = (root.horizontal ? hrow.childAt(event.x, event.y) : vlist.itemAt(event.x, event.y))?.ws;
                 if (!ws)
                     return;
                 if (Hypr.activeWsId !== ws)

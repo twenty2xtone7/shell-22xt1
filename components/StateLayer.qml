@@ -14,7 +14,7 @@ MouseArea {
     readonly property alias rect: base
 
     property bool shapeMorph
-    property real stateOpacity: containsMouse || manualHoverOverride ? 0.08 : 0
+    property real stateOpacity: containsMouse || manualHoverOverride ? 0.08 * (LiquidGlass.enabled ? LiquidGlass.hoverIntensity * 2 : 1) : 0
 
     property real pressX: width / 2
     property real pressY: height / 2
@@ -49,7 +49,7 @@ MouseArea {
         pressY = y;
         fadeAnim.complete();
         circleRadius = 0;
-        circle.opacity = 0.1;
+        circle.opacity = 0.1 * (LiquidGlass.enabled ? LiquidGlass.pressIntensity * 2 : 1);
         rippleAnim.restart();
         endRadiusAtPress = endRadius;
     }

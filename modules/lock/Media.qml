@@ -9,13 +9,13 @@ import qs.components.controls
 import qs.components.images
 import qs.services
 
-ClipRect {
+StyledClippingRect {
     id: root
 
     required property var lock
 
     implicitHeight: layout.implicitHeight + layout.anchors.margins * 2
-    radius: Tokens.rounding.extraLarge
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.extraLarge
     color: Colours.tPalette.m3surfaceContainer
 
     FadeImage {

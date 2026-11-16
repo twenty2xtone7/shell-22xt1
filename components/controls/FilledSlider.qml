@@ -1,8 +1,8 @@
+import "../effects"
 import QtQuick
 import QtQuick.Templates
 import Caelestia.Config
 import qs.components
-import qs.components.effects
 import qs.services
 
 Slider {
@@ -11,6 +11,7 @@ Slider {
     required property string icon
     property real oldValue
     property bool initialized
+    property color fillColor: Colours.palette.m3secondary
 
     orientation: Qt.Vertical
 
@@ -25,7 +26,7 @@ Slider {
             y: root.handle.y
             implicitHeight: parent.height - y
 
-            color: Colours.palette.m3secondary
+            color: root.fillColor
             radius: parent.radius
         }
     }

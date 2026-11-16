@@ -2,220 +2,132 @@ pragma Singleton
 
 import QtQuick
 import QtQuick.Layouts
-import Caelestia.Config
 import Caelestia.I18n
-import qs.components
-import qs.services
+// Static imports below are intentional: besides compile-time checking,
+// they ensure the QML engine resolves the qs page modules so the
+// dynamic Qt.createComponent(Qt.resolvedUrl(...)) loads in Pages.qml succeed.
 import qs.modules.nexus.common
 import qs.modules.nexus.pages
-import qs.modules.nexus.pages.apps
-import qs.modules.nexus.pages.audio
-import qs.modules.nexus.pages.bluetooth
-import qs.modules.nexus.pages.network
-import qs.modules.nexus.pages.panels
-import qs.modules.nexus.pages.services
 import qs.modules.nexus.pages.wallandstyle
+import qs.modules.nexus.pages.liquidglass
+import qs.modules.nexus.pages.network
+import qs.modules.nexus.pages.bluetooth
+import qs.modules.nexus.pages.audio
+import qs.modules.nexus.pages.panels
 import qs.modules.nexus.pages.panels.taskbar
+import qs.modules.nexus.pages.apps
+import qs.modules.nexus.pages.services
+import qs.modules.nexus.pages.recordings
+import qs.modules.nexus.pages.dynlyrics
 
 QtObject {
-    id: root
-
-    readonly property list<Component> pageComps: [
-        // Appearance
-        Component {
-            // Wallpaper & style
-            StackPage {
-                Component {
-                    WallpaperAndStyle {}
-                }
-                Component {
-                    WallpaperSelect {}
-                }
-                Component {
-                    WallpaperCategory {}
-                }
-                Component {
-                    ColourSelect {}
-                }
-            }
+    // Dynamic string URLs. Order of entries must match PageRegistry.pages;
+    // order of subPages must match nState.openSubPage(idx) callers.
+    readonly property list<var> pages: [
+        {
+            url: "pages/WallpaperAndStyle.qml",
+            subPages: [
+                "pages/WallpaperAndStyle.qml",
+                "pages/wallandstyle/WallpaperSelect.qml",
+                "pages/wallandstyle/WallpaperCategory.qml",
+                "pages/wallandstyle/ColourSelect.qml",
+                "pages/wallandstyle/SnowPage.qml"
+            ]
         },
-
-        // Connectivity
-        Component {
-            // Network
-            StackPage {
-                Component {
-                    NetworkPage {}
-                }
-                Component {
-                    EthernetDetailPage {}
-                }
-                Component {
-                    AddNetworkPage {}
-                }
-                Component {
-                    NetworkDetailPage {}
-                }
-                Component {
-                    AddVpnPage {}
-                }
-                Component {
-                    AllNetworksPage {}
-                }
-                Component {
-                    SavedNetworksPage {}
-                }
-            }
+        {
+            url: "pages/liquidglass/LiquidGlassPage.qml",
+            subPages: ["pages/liquidglass/LiquidGlassPage.qml"]
         },
-        Component {
-            // Bluetooth
-            StackPage {
-                Component {
-                    BluetoothPage {}
-                }
-                Component {
-                    BtDeviceInfo {}
-                }
-                Component {
-                    BluetoothPairing {}
-                }
-            }
+        {
+            url: "pages/NetworkPage.qml",
+            subPages: [
+                "pages/NetworkPage.qml",
+                "pages/network/EthernetDetailPage.qml",
+                "pages/network/AddNetworkPage.qml",
+                "pages/network/NetworkDetailPage.qml",
+                "pages/network/AddVpnPage.qml",
+                "pages/network/AllNetworksPage.qml",
+                "pages/network/SavedNetworksPage.qml"
+            ]
         },
-        Component {
-            // Audio
-            StackPage {
-                Component {
-                    AudioPage {}
-                }
-                Component {
-                    AppVolumes {}
-                }
-            }
+        {
+            url: "pages/BluetoothPage.qml",
+            subPages: [
+                "pages/BluetoothPage.qml",
+                "pages/bluetooth/BtDeviceInfo.qml",
+                "pages/bluetooth/BluetoothPairing.qml"
+            ]
         },
-
-        // System
-        Component {
-            PlaceholderComp {}
+        {
+            url: "pages/AudioPage.qml",
+            subPages: [
+                "pages/AudioPage.qml",
+                "pages/audio/AppVolumes.qml"
+            ]
         },
-        Component {
-            PlaceholderComp {}
+        { placeholder: true },
+        { placeholder: true },
+        {
+            url: "pages/PanelsPage.qml",
+            subPages: [
+                "pages/PanelsPage.qml",
+                "pages/panels/DashboardPanel.qml",
+                "pages/panels/TaskbarPanel.qml",
+                "pages/panels/LauncherPanel.qml",
+                "pages/panels/SidebarPanel.qml",
+                "pages/panels/UtilitiesPanel.qml",
+                "pages/panels/taskbar/BarWorkspaces.qml",
+                "pages/panels/taskbar/BarActiveWindow.qml",
+                "pages/panels/taskbar/BarTray.qml",
+                "pages/panels/taskbar/BarStatusIcons.qml",
+                "pages/panels/taskbar/BarClock.qml"
+            ]
         },
-
-        // Shell
-        Component {
-            // Panels
-            StackPage {
-                Component {
-                    PanelsPage {}
-                }
-                Component {
-                    DashboardPanel {}
-                }
-                Component {
-                    TaskbarPanel {}
-                }
-                Component {
-                    LauncherPanel {}
-                }
-                Component {
-                    SidebarPanel {}
-                }
-                Component {
-                    UtilitiesPanel {}
-                }
-
-                // Taskbar component sub-pages
-                Component {
-                    BarWorkspaces {}
-                }
-                Component {
-                    BarActiveWindow {}
-                }
-                Component {
-                    BarTray {}
-                }
-                Component {
-                    BarStatusIcons {}
-                }
-                Component {
-                    BarClock {}
-                }
-            }
+        {
+            url: "pages/AppsPage.qml",
+            subPages: [
+                "pages/AppsPage.qml",
+                "pages/apps/AllApps.qml",
+                "pages/apps/AppInfo.qml"
+            ]
         },
-        Component {
-            // Apps
-            StackPage {
-                Component {
-                    AppsPage {}
-                }
-                Component {
-                    AllApps {}
-                }
-                Component {
-                    AppInfo {}
-                }
-            }
+        {
+            url: "pages/ServicesPage.qml",
+            subPages: [
+                "pages/ServicesPage.qml",
+                "pages/services/NotificationsPage.qml",
+                "pages/RadialMenuPage.qml"
+            ]
         },
-        Component {
-            // Services
-            StackPage {
-                Component {
-                    ServicesPage {}
-                }
-                Component {
-                    NotificationsPage {}
-                }
-            }
+        {
+            url: "pages/recordings/RecordingsPage.qml",
+            subPages: ["pages/recordings/RecordingsPage.qml"]
         },
-        Component {
-            // Language & region
-            StackPage {
-                Component {
-                    LanguageAndRegion {}
-                }
-            }
+        {
+            url: "pages/LanguageAndRegion.qml",
+            subPages: ["pages/LanguageAndRegion.qml"]
         },
-
-        // About
-        Component {
-            StackPage {
-                Component {
-                    AboutPage {}
-                }
-            }
+        {
+            url: "pages/dynlyrics/DynLyricsPage.qml",
+            subPages: ["pages/dynlyrics/DynLyricsPage.qml"]
+        },
+        {
+            url: "pages/AboutPage.qml",
+            subPages: ["pages/AboutPage.qml"]
         }
     ]
 
-    readonly property Component placeholderComp: Component {
-        PlaceholderComp {}
-    }
-
-    component PlaceholderComp: Item {
-        property NexusState nState // To avoid the warning from non-existent property
-
-        ColumnLayout {
-            anchors.centerIn: parent
-            spacing: Tokens.padding.extraSmall
-
-            MaterialIcon {
-                Layout.alignment: Qt.AlignHCenter
-                text: "handyman"
-                color: Colours.palette.m3outlineVariant
-                fontStyle: Tokens.font.icon.extraLarge
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: Tr.tr("Page under construction")
-                color: Colours.palette.m3outlineVariant
-                font: Tokens.font.title.large
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: Tr.tr("This page will be available in a future update.")
-                color: Colours.palette.m3outlineVariant
-                font: Tokens.font.body.large
+    readonly property Component placeholderComponent: Component {
+        Item {
+            property var nState
+            ColumnLayout {
+                anchors.centerIn: parent
+                spacing: 8
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: Tr.tr("Page under construction")
+                    font.pixelSize: 16
+                }
             }
         }
     }

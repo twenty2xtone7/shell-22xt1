@@ -28,10 +28,11 @@ Singleton {
     readonly property string feelsLike: formatTemp(cc?.feelsLikeC)
     readonly property int humidity: cc?.humidity ?? 0
     readonly property real windSpeed: cc?.windSpeed ?? 0
-    readonly property string sunrise: cc ? Tr.formatDateTime(new Date(cc.sunrise), Units.twelveHourClock ? "h:mm A" : "h:mm") : "--:--"
-    readonly property string sunset: cc ? Tr.formatDateTime(new Date(cc.sunset), Units.twelveHourClock ? "h:mm A" : "h:mm") : "--:--"
+    readonly property string sunrise: cc ? Qt.formatDateTime(new Date(cc.sunrise), Units.twelveHourClock ? "h:mm A" : "h:mm") : "--:--"
+    readonly property string sunset: cc ? Qt.formatDateTime(new Date(cc.sunset), Units.twelveHourClock ? "h:mm A" : "h:mm") : "--:--"
 
     readonly property var cachedCities: new Map()
+    readonly property int maxCachedCities: 50
 
     function formatTemp(temp: var, compact = false): string {
         const unit = GlobalConfig.services.weatherUnits;
@@ -158,8 +159,16 @@ Singleton {
         return mapping[cityName] || cityName;
     }
 
-    function cacheCity(coords: string, cityName: string): void {
+    function _internalCacheCity(coords: string, cityName: string): void {
+        if (cachedCities.size >= maxCachedCities) {
+            const firstKey = cachedCities.keys().next().value;
+            cachedCities.delete(firstKey);
+        }
         cachedCities.set(coords, cityName);
+    }
+
+    function cacheCity(coords: string, cityName: string): void {
+        _internalCacheCity(coords, cityName);
         citiesSaveTimer.restart();
     }
 
@@ -176,7 +185,7 @@ Singleton {
         }
 
         const [lat, lon] = coords.split(",").map(s => s.trim());
-        const lang = Tr.locale.name.split("_")[0] || "en";
+        const lang = Qt.locale().name.split("_")[0] || "en";
 
         const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=geocodejson&accept-language=${lang}`;
         const nominatimHeaders = {
@@ -211,7 +220,7 @@ Singleton {
     }
 
     function fetchCoordsFromCity(cityName: string): void {
-        const lang = Tr.locale.name.split("_")[0] || "en";
+        const lang = Qt.locale().name.split("_")[0] || "en";
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=${lang}&format=json`;
 
         Requests.get(url, text => {
@@ -395,7 +404,7 @@ Singleton {
                 const data = JSON.parse(text());
                 for (const [coords, cityName] of Object.entries(data))
                     if (!root.cachedCities.has(coords))
-                        root.cachedCities.set(coords, cityName);
+                        root._internalCacheCity(coords, cityName);
             } catch (error) {
                 console.warn(lc, `Unable to parse cached cities: ${error}`);
             }

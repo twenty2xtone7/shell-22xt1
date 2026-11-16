@@ -13,7 +13,7 @@ Singleton {
     property var wirelessInterfaces: []
     property var ethernetInterfaces: []
     property bool isConnected: false
-    readonly property bool connecting: wirelessInterfaces.some(i => isConnectingState(i.state))
+    readonly property bool connecting: wirelessInterfaces.some(i => isConnectingState(i.state)) || pendingConnection !== null
     property string activeInterface: ""
     property string activeConnection: ""
     property bool wifiEnabled: true
@@ -43,6 +43,16 @@ Singleton {
 
     readonly property alias connectionCheckTimer: connectionCheckTimer
     readonly property alias immediateCheckTimer: immediateCheckTimer
+    
+    // ponytail: debounce monitor cascade. Upgrade: per-event-type debounce
+    property bool _refreshPending: false
+
+    Timer {
+        id: _refreshDebounce
+
+        interval: 500
+        onTriggered: root._refreshPending = false
+    }
 
     // Constants
     readonly property string deviceTypeWifi: "wifi"
@@ -435,6 +445,13 @@ Singleton {
         const maxRetries = 2;
 
         if (callback) {
+            // Clear any stale pending connection before setting new one
+            if (root.pendingConnection && root.pendingConnection.ssid !== ssid) {
+                connectionCheckTimer.stop();
+                immediateCheckTimer.stop();
+                immediateCheckTimer.checkCount = 0;
+            }
+
             root.pendingConnection = {
                 ssid: ssid,
                 bssid: hasBssid ? bssid : "",
@@ -457,9 +474,13 @@ Singleton {
             cmd.push(root.connectionParamPassword, password);
         }
         executeCommand(cmd, result => {
+            // Verify this callback still matches the active pending connection (race check)
+            if (!root.pendingConnection || root.pendingConnection.ssid !== ssid) {
+                return;
+            }
+
             if (result.needsPassword && callback) {
-                if (callback)
-                    callback(result);
+                callback(result);
                 return;
             }
 
@@ -468,9 +489,26 @@ Singleton {
                 Qt.callLater(() => {
                     connectWireless(ssid, password, bssid, callback, retries + 1);
                 }, 1000);
-            } else if (!result.success && root.pendingConnection) {} else if (result.success && callback) {} else if (!result.success && !root.pendingConnection) {
-                if (callback)
-                    callback(result);
+            } else if (!result.success && root.pendingConnection) {
+                const pending = root.pendingConnection;
+                const failedSsid = pending.ssid;
+                root.pendingConnection = null;
+                immediateCheckTimer.stop();
+                immediateCheckTimer.checkCount = 0;
+                root.connectionFailed(failedSsid);
+                const cb = pending.callback;
+                pending.callback = null;
+                if (cb) {
+                    cb({
+                        success: false,
+                        output: "",
+                        error: "Connection failed",
+                        exitCode: result.exitCode,
+                        needsPassword: result.needsPassword || false
+                    });
+                }
+            } else if (result.success && callback) {
+                // Success callback handled by checkPendingConnection via active changed signal
             }
         });
     }
@@ -793,10 +831,19 @@ Singleton {
 
         const connectionName = root.savedConnections.find(conn => conn && conn.toLowerCase().trim() === ssid.toLowerCase().trim()) || ssid;
 
+        // Clear pending connection for this SSID to prevent stale callbacks
+        if (root.pendingConnection && root.pendingConnection.ssid.toLowerCase().trim() === ssid.toLowerCase().trim()) {
+            connectionCheckTimer.stop();
+            immediateCheckTimer.stop();
+            immediateCheckTimer.checkCount = 0;
+            root.pendingConnection = null;
+        }
+
         executeCommand([root.nmcliCommandConnection, "delete", connectionName], result => {
             if (result.success) {
                 Qt.callLater(() => {
                     loadSavedConnections(() => {});
+                    getNetworks(() => {});
                 }, 500);
             }
             if (callback)
@@ -819,6 +866,24 @@ Singleton {
     }
 
     function disconnectFromNetwork(): void {
+        const ps = root.pendingConnection;
+        if (ps) {
+            connectionCheckTimer.stop();
+            immediateCheckTimer.stop();
+            immediateCheckTimer.checkCount = 0;
+            root.pendingConnection = null;
+            const cb = ps.callback;
+            ps.callback = null;
+            if (cb) {
+                cb({
+                    success: false,
+                    output: "",
+                    error: "Disconnected",
+                    exitCode: 0,
+                    needsPassword: false
+                });
+            }
+        }
         if (active && active.ssid) {
             executeCommand([root.nmcliCommandConnection, "down", active.ssid], result => {
                 if (result.success) {
@@ -1083,11 +1148,11 @@ Singleton {
                 exitCode: exitCode,
                 needsPassword: true
             };
-            if (pending.callback) {
-                pending.callback(result);
-            }
-            if (proc.callback && proc.callback !== pending.callback) {
-                proc.callback(result);
+            // Fire callback once, then clear it to prevent double-fire
+            const cb = pending.callback;
+            pending.callback = null;
+            if (cb) {
+                cb(result);
             }
             return true;
         }
@@ -1098,20 +1163,27 @@ Singleton {
     function checkPendingConnection(): void {
         if (root.pendingConnection) {
             Qt.callLater(() => {
+                if (!root.pendingConnection) {
+                    return;
+                }
+
                 const connected = root.active && root.active.ssid === root.pendingConnection.ssid;
                 if (connected) {
                     connectionCheckTimer.stop();
                     immediateCheckTimer.stop();
                     immediateCheckTimer.checkCount = 0;
-                    if (root.pendingConnection.callback) {
-                        root.pendingConnection.callback({
+                    const pending = root.pendingConnection;
+                    root.pendingConnection = null;
+                    const cb = pending.callback;
+                    pending.callback = null;
+                    if (cb) {
+                        cb({
                             success: true,
                             output: "Connected",
                             error: "",
                             exitCode: 0
                         });
                     }
-                    root.pendingConnection = null;
                 } else {
                     if (!immediateCheckTimer.running) {
                         immediateCheckTimer.start();
@@ -1387,41 +1459,47 @@ Singleton {
     }
 
     function refreshOnConnectionChange(): void {
-        getNetworks(networks => {
-            const newActive = root.active;
+        if (root._refreshPending) return;
+        root._refreshPending = true;
+        _refreshDebounce.start();
+        
+        // Refresh wireless interfaces first so active state is current
+        getWirelessInterfaces(() => {
+            getNetworks(networks => {
+                const newActive = root.active;
 
-            if (newActive && newActive.active) {
-                Qt.callLater(() => {
-                    if (root.wirelessInterfaces.length > 0) {
-                        const activeWireless = root.wirelessInterfaces.find(iface => {
-                            return isConnectedState(iface.state);
-                        });
-                        if (activeWireless && activeWireless.device) {
-                            getWirelessDeviceDetails(activeWireless.device, () => {});
-                        }
-                    }
-
-                    if (root.ethernetInterfaces.length > 0) {
-                        const activeEthernet = root.ethernetInterfaces.find(iface => {
-                            return isConnectedState(iface.state);
-                        });
-                        if (activeEthernet && activeEthernet.device) {
-                            getEthernetDeviceDetails(activeEthernet.device, () => {});
-                        }
-                    }
-                }, 500);
-            } else {
-                root.wirelessDeviceDetails = null;
-                root.ethernetDeviceDetails = null;
-            }
-
-            getWirelessInterfaces(() => {});
-            getEthernetInterfaces(() => {
-                if (root.activeEthernet && root.activeEthernet.connected) {
+                if (newActive && newActive.active) {
                     Qt.callLater(() => {
-                        getEthernetDeviceDetails(root.activeEthernet.iface, () => {});
+                        if (root.wirelessInterfaces.length > 0) {
+                            const activeWireless = root.wirelessInterfaces.find(iface => {
+                                return isConnectedState(iface.state);
+                            });
+                            if (activeWireless && activeWireless.device) {
+                                getWirelessDeviceDetails(activeWireless.device, () => {});
+                            }
+                        }
+
+                        if (root.ethernetInterfaces.length > 0) {
+                            const activeEthernet = root.ethernetInterfaces.find(iface => {
+                                return isConnectedState(iface.state);
+                            });
+                            if (activeEthernet && activeEthernet.device) {
+                                getEthernetDeviceDetails(activeEthernet.device, () => {});
+                            }
+                        }
                     }, 500);
+                } else {
+                    root.wirelessDeviceDetails = null;
+                    root.ethernetDeviceDetails = null;
                 }
+
+                getEthernetInterfaces(() => {
+                    if (root.activeEthernet && root.activeEthernet.connected) {
+                        Qt.callLater(() => {
+                            getEthernetDeviceDetails(root.activeEthernet.iface, () => {});
+                        }, 500);
+                    }
+                });
             });
         });
     }
@@ -1487,7 +1565,7 @@ Singleton {
                 id: stderrCollector
             }
 
-            onExited: code => {
+            onExited: code => { // qmllint disable signal-handler-parameters
                 Qt.callLater(() => {
                     const callback = proc.callback;
                     const result = {
@@ -1535,11 +1613,10 @@ Singleton {
                                             exitCode: -1,
                                             needsPassword: true
                                         };
-                                        if (pending.callback) {
-                                            pending.callback(result);
-                                        }
-                                        if (proc.callback && proc.callback !== pending.callback) {
-                                            proc.callback(result);
+                                        const cb = pending.callback;
+                                        pending.callback = null;
+                                        if (cb) {
+                                            cb(result);
                                         }
                                         foundPasswordError = true;
                                         break;
@@ -1556,13 +1633,17 @@ Singleton {
                         immediateCheckTimer.stop();
                         immediateCheckTimer.checkCount = 0;
                         root.connectionFailed(failedSsid);
-                        pending.callback({
-                            success: false,
-                            output: "",
-                            error: "Connection timeout",
-                            exitCode: -1,
-                            needsPassword: false
-                        });
+                        const cb = pending.callback;
+                        pending.callback = null;
+                        if (cb) {
+                            cb({
+                                success: false,
+                                output: "",
+                                error: "Connection timeout",
+                                exitCode: -1,
+                                needsPassword: false
+                            });
+                        }
                     }
                 } else if (connected) {
                     root.pendingConnection = null;
@@ -1591,15 +1672,18 @@ Singleton {
                     connectionCheckTimer.stop();
                     immediateCheckTimer.stop();
                     immediateCheckTimer.checkCount = 0;
-                    if (root.pendingConnection.callback) {
-                        root.pendingConnection.callback({
+                    const pending = root.pendingConnection;
+                    root.pendingConnection = null;
+                    const cb = pending.callback;
+                    pending.callback = null;
+                    if (cb) {
+                        cb({
                             success: true,
                             output: "Connected",
                             error: "",
                             exitCode: 0
                         });
                     }
-                    root.pendingConnection = null;
                 } else {
                     for (let i = 0; i < root.activeProcesses.length; i++) {
                         const proc = root.activeProcesses[i];
@@ -1623,11 +1707,10 @@ Singleton {
                                             exitCode: -1,
                                             needsPassword: true
                                         };
-                                        if (pending.callback) {
-                                            pending.callback(result);
-                                        }
-                                        if (proc.callback && proc.callback !== pending.callback) {
-                                            proc.callback(result);
+                                        const cb = pending.callback;
+                                        pending.callback = null;
+                                        if (cb) {
+                                            cb(result);
                                         }
                                         return;
                                     }
@@ -1695,7 +1778,7 @@ Singleton {
         id: rescanProc
 
         command: ["nmcli", "dev", root.nmcliCommandWifi, "list", "--rescan", "yes"]
-        onExited: root.getNetworks()
+        onExited: root.getNetworks() // qmllint disable signal-handler-parameters
     }
 
     Process {
@@ -1708,9 +1791,12 @@ Singleton {
                 LC_ALL: "C.UTF-8"
             })
         stdout: SplitParser {
-            onRead: root.refreshOnConnectionChange()
+            onRead: data => {
+                // ponytail: debounced in refreshOnConnectionChange
+                root.refreshOnConnectionChange();
+            }
         }
-        onExited: monitorRestartTimer.start()
+        onExited: monitorRestartTimer.start() // qmllint disable signal-handler-parameters
     }
 
     Timer {
@@ -1760,7 +1846,7 @@ Singleton {
             }
         }
 
-        onExited: code => {
+        onExited: code => { // qmllint disable signal-handler-parameters
             exitCode = code;
 
             Qt.callLater(() => {
@@ -1788,7 +1874,9 @@ Singleton {
                     }
 
                     callbackCalled = true;
-                    callback({
+                    const cb = proc.callback;
+                    proc.callback = null; // Prevent double callback
+                    cb({
                         success: success,
                         output: output,
                         error: error,

@@ -12,7 +12,7 @@ StyledRect {
     id: root
 
     color: Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
-    radius: Tokens.rounding.extraLargeIncreased
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.extraLargeIncreased
     implicitHeight: header.anchors.margins + header.implicitHeight + Tokens.spacing.medium + layout.implicitHeight + layout.anchors.bottomMargin
 
     RowLayout {
@@ -97,7 +97,7 @@ StyledRect {
                 StyledText {
                     Layout.topMargin: Tokens.spacing.extraSmall
                     Layout.alignment: Qt.AlignHCenter
-                    text: hour.index === 0 ? Tr.trCtx("Now", "forecast column") : Tr.formatDateTime(new Date(hour.cond.timestamp.replace("T", " ")), Units.twelveHourClock ? "ha" : "hh:00")
+                    text: hour.index === 0 ? Tr.trCtx("Now", "forecast column") : Qt.formatDateTime(new Date(hour.cond.timestamp.replace("T", " ")), Units.twelveHourClock ? "ha" : "hh:00")
                     color: Colours.palette.m3onSurfaceVariant
                     font: Tokens.font.body.medium
                 }

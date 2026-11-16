@@ -13,17 +13,33 @@ Singleton {
     property list<string> keys: [key]
     property list<real> weights: [1]
 
-    readonly property var fzf: useFuzzy ? [] : new Fzf.Finder(list, Object.assign({
-        selector
-    }, extraOpts))
-    readonly property list<var> fuzzyPrepped: useFuzzy ? list.map(e => {
-        const obj = {
-            _item: e
-        };
-        for (const k of keys)
-            obj[k] = Fuzzy.prepare(e[k]);
-        return obj;
-    }) : []
+    // Built on first query, not at singleton creation. Dropped when the list changes.
+    property var fzf: null
+    property var fuzzyPrepped: []
+
+    onListChanged: {
+        fzf = null;
+        fuzzyPrepped = [];
+    }
+
+    function ensureIndex(): void {
+        if (useFuzzy) {
+            if (fuzzyPrepped.length === list.length && list.length > 0)
+                return;
+            fuzzyPrepped = list.map(e => {
+                const obj = {
+                    _item: e
+                };
+                for (const k of keys)
+                    obj[k] = Fuzzy.prepare(e[k]);
+                return obj;
+            });
+        } else if (!fzf) {
+            fzf = new Fzf.Finder(list, Object.assign({
+                selector
+            }, extraOpts));
+        }
+    }
 
     function transformSearch(search: string): string {
         return search;
@@ -38,6 +54,8 @@ Singleton {
         search = transformSearch(search.trim().replace(/\s+/g, " "));
         if (!search)
             return [...list];
+
+        ensureIndex();
 
         if (useFuzzy)
             return Fuzzy.go(search, fuzzyPrepped, Object.assign({

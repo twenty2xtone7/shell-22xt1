@@ -32,13 +32,6 @@ QtObject {
         return Tr.trCtx("%1m", "abbreviated notification age, minutes").arg(ageMins);
     }
 
-    readonly property Timer timeStrTimer: Timer {
-        running: !notif.closed
-        repeat: true
-        interval: 5000
-        onTriggered: notif.updateTimeStr()
-    }
-
     property Notification notification
     property string notificationId
     property string summary
@@ -64,7 +57,7 @@ QtObject {
     }
 
     readonly property Timer timer: Timer {
-        running: true
+        running: notif.popup
         interval: notif.expireTimeout > 0 ? notif.expireTimeout : notif.hasFullscreen ? GlobalConfig.notifs.fullscreenExpireTimeout : GlobalConfig.notifs.defaultExpireTimeout
         onTriggered: {
             // Always expire if the active workspace has a fullscreen window
@@ -166,7 +159,9 @@ QtObject {
         }
 
         function onActionsChanged(): void {
-            notif.actions = (notif.notification.actions as Array).map(a => ({
+            // qmllint disable unresolved-type
+            notif.actions = notif.notification.actions.map(a => ({
+                        // qmllint enable unresolved-type
                         identifier: a.identifier,
                         text: a.text,
                         invoke: () => a.invoke()
@@ -184,20 +179,6 @@ QtObject {
         const diff = Date.now() - time.getTime();
         const m = Math.floor(diff / 60000);
         ageMins = m;
-
-        if (m < 1) {
-            timeStrTimer.interval = 5000;
-        } else {
-            const h = Math.floor(m / 60);
-            const d = Math.floor(h / 24);
-
-            if (d > 0)
-                timeStrTimer.interval = 3600000;
-            else if (h > 0)
-                timeStrTimer.interval = 300000;
-            else
-                timeStrTimer.interval = m < 10 ? 30000 : 60000;
-        }
     }
 
     function maybeTriggerDummyImageLoader(): void {
@@ -240,8 +221,9 @@ QtObject {
         urgency = notification.urgency;
         resident = notification.resident;
         hasActionIcons = notification.hasActionIcons;
-
-        actions = (notification.actions as Array).map(a => ({
+        // qmllint disable unresolved-type
+        actions = notification.actions.map(a => ({
+                    // qmllint enable unresolved-type
                     identifier: a.identifier,
                     text: a.text,
                     invoke: () => a.invoke()

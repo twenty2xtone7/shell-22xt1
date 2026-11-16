@@ -39,7 +39,7 @@ Item {
                 Layout.fillHeight: true
 
                 color: Colours.tPalette.m3surfaceContainer
-                radius: Tokens.rounding.large
+                radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
                 clip: true
 
                 Details {
@@ -52,7 +52,7 @@ Item {
                 Layout.preferredHeight: buttons.implicitHeight
 
                 color: Colours.tPalette.m3surfaceContainer
-                radius: Tokens.rounding.large
+                radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
 
                 Buttons {
                     id: buttons

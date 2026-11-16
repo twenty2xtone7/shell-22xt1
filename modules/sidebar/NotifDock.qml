@@ -63,8 +63,9 @@ Item {
 
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: count.right
-            anchors.right: parent.right
+            anchors.right: expandAllBtn.visible ? expandAllBtn.left : parent.right
             anchors.leftMargin: Tokens.spacing.extraSmall
+            anchors.rightMargin: expandAllBtn.visible ? Tokens.spacing.extraSmall : 0
 
             // TRANSLATORS: the count itself is rendered separately, immediately to the left
             text: root.notifCount > 0 ? Tr.trCtxN("notification", "notifications", root.notifCount, "notification count label, number shown separately") : Tr.tr("Notifications")
@@ -72,9 +73,21 @@ Item {
             font: Tokens.font.label.large
             elide: Text.ElideRight
         }
+
+        IconButton {
+            id: expandAllBtn
+
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+
+            visible: root.notifCount > 0
+            icon: props.dockTall ? "unfold_less" : "unfold_more"
+            type: IconButton.Text
+            onClicked: props.dockTall = !props.dockTall
+        }
     }
 
-    ClipRect {
+    ClippingRectangle {
         id: clipRect
 
         anchors.left: parent.left
@@ -87,7 +100,7 @@ Item {
         color: "transparent"
 
         Loader {
-            asynchronous: true
+            asynchronous: false
             anchors.centerIn: parent
             active: opacity > 0
             opacity: root.notifCount > 0 ? 0 : 1
@@ -146,34 +159,8 @@ Item {
         }
     }
 
-    Timer {
-        id: clearTimer
-
-        repeat: true
-        triggeredOnStart: true
-        interval: Math.max(15, Math.min(80, 69.8 - 12.3 * Math.log(Notifs.notClosed.length)))
-        onTriggered: {
-            const first = Notifs.notClosed[0];
-            if (!first) {
-                stop();
-                return;
-            }
-
-            const appName = first.appName;
-            let cleared = 0;
-            for (const n of Notifs.notClosed.filter(n => n.appName === appName)) {
-                n.close();
-                cleared++;
-                if (cleared > 30) {
-                    interval = 5;
-                    return;
-                }
-            }
-        }
-    }
-
     Loader {
-        asynchronous: true
+        asynchronous: false
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: Tokens.padding.medium
@@ -187,7 +174,10 @@ Item {
 
             icon: "clear_all"
             font: Tokens.font.icon.large
-            onClicked: clearTimer.start()
+            // Instant bulk clear: the old per-group trickle timer ran one
+            // animated close() per tick, which froze the shell on 100-200
+            // notifications. Notifs.clearAll() resets everything at once.
+            onClicked: Notifs.clearAll()
 
             Elevation {
                 anchors.fill: parent

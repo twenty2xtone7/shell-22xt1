@@ -1,9 +1,10 @@
+import "dash"
 import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
+import qs.components.effects
 import qs.components.filedialog
 import qs.services
-import qs.modules.dashboard.dash
 
 GridLayout {
     id: root
@@ -20,7 +21,7 @@ GridLayout {
         Layout.preferredWidth: Tokens.sizes.dashboard.userWidth
         Layout.fillHeight: true
 
-        radius: Tokens.rounding.extraLarge
+        radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.extraLarge
 
         User {
             id: user
@@ -36,7 +37,7 @@ GridLayout {
         Layout.preferredWidth: Tokens.sizes.dashboard.weatherWidth
         Layout.preferredHeight: weather.implicitHeight
 
-        radius: Tokens.rounding.extraLarge * 1.5
+        radius: (LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.extraLarge) * 1.5
 
         SmallWeather {
             id: weather
@@ -48,7 +49,7 @@ GridLayout {
         Layout.preferredWidth: dateTime.implicitWidth
         Layout.fillHeight: true
 
-        radius: Tokens.rounding.large
+        radius: LiquidGlass.enabled ? Math.max(8, LiquidGlass.cardRadius * 0.7) : Tokens.rounding.large
 
         DateTime {
             id: dateTime
@@ -62,7 +63,7 @@ GridLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: calendar.implicitHeight
 
-        radius: Tokens.rounding.extraLarge
+        radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.extraLarge
 
         Calendar {
             id: calendar
@@ -77,7 +78,7 @@ GridLayout {
         Layout.preferredWidth: resources.implicitWidth
         Layout.fillHeight: true
 
-        radius: Tokens.rounding.large
+        radius: LiquidGlass.enabled ? Math.max(8, LiquidGlass.cardRadius * 0.7) : Tokens.rounding.large
 
         Resources {
             id: resources
@@ -91,14 +92,18 @@ GridLayout {
         Layout.preferredWidth: media.implicitWidth
         Layout.fillHeight: true
 
-        radius: Tokens.rounding.extraLarge * 2
+        radius: (LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.extraLarge) * 2
 
         Media {
             id: media
+
+            screenState: root.screenState
         }
     }
 
-    component Rect: StyledRect {
+    component Rect: GlassSurface {
         color: Colours.tPalette.m3surfaceContainer
+        radiusGroup: "card"
+        componentName: "dashboard"
     }
 }

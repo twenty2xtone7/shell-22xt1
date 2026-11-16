@@ -63,7 +63,7 @@ Item {
         anchors.rightMargin: root.clampedPadding
 
         color: "transparent"
-        radius: Tokens.rounding.large
+        radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
 
         StyledListView {
             id: list
@@ -195,7 +195,7 @@ Item {
             }
         }
 
-        ClipRect {
+        ClippingRectangle {
             anchors.top: parent.top
             anchors.topMargin: wrapper.idx === 0 ? 0 : Tokens.spacing.medium
 

@@ -40,7 +40,7 @@ Item {
         id: wrapper
 
         anchors.fill: parent
-        layer.enabled: true
+        layer.enabled: root.opacity > 0
 
         Loader {
             asynchronous: true
@@ -51,8 +51,9 @@ Item {
             active: root.opacity > 0
 
             sourceComponent: Item {
-                ServiceRef {
-                    service: Audio.cava
+                QtObject {
+                    Component.onCompleted: Audio.acquireVisualiser()
+                    Component.onDestruction: Audio.releaseVisualiser()
                 }
 
                 VisualiserBars {

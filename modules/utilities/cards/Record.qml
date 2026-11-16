@@ -19,7 +19,7 @@ StyledRect {
 
     implicitHeight: layout.implicitHeight + layout.anchors.margins * 2
 
-    radius: Tokens.rounding.large
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
     color: Colours.tPalette.m3surfaceContainer
 
     Ref {
@@ -120,7 +120,7 @@ StyledRect {
 
             property bool running: Recorder.running
 
-            asynchronous: true
+            asynchronous: false
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             sourceComponent: running ? recordingControls : recordingList

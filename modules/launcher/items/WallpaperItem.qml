@@ -1,10 +1,10 @@
 import QtQuick
+import Quickshell
 import Caelestia.Config
 import Caelestia.Models
-import Caelestia.Multimedia
-import Caelestia.State
 import qs.components
 import qs.components.effects
+import qs.components.images
 import qs.services
 
 Item {
@@ -26,8 +26,6 @@ Item {
     implicitHeight: image.height + label.height + Tokens.spacing.extraSmall + Tokens.padding.large + Tokens.padding.medium
 
     StateLayer {
-        id: stateLayer
-
         radius: Tokens.rounding.large
         onClicked: {
             Wallpapers.setWallpaper(root.modelData.path);
@@ -48,7 +46,7 @@ Item {
         }
     }
 
-    ClipRect {
+    StyledClippingRect {
         id: image
 
         anchors.horizontalCenter: parent.horizontalCenter
@@ -66,10 +64,59 @@ Item {
             fontStyle: Tokens.font.icon.builders.extraLarge.scale(2).weight(Font.DemiBold).build()
         }
 
-        Visual {
+        Image {
+            id: wallpaperImage
             anchors.fill: parent
-            source: root.modelData.path
-            playing: (root.PathView.isCurrentItem && PersistentState.wallpaperPlaying) || stateLayer.containsMouse
+            asynchronous: true
+            fillMode: Image.PreserveAspectCrop
+            
+            property string videoPath: root.modelData.path
+            property bool isVideo: /\.(mp4|webm|mkv|mov|avi|m4v)$/i.test(videoPath)
+            
+            source: {
+                if (isVideo) {
+                    // Generate thumbnail path directly
+                    const basename = videoPath.split('/').pop().replace(/\.[^.]+$/, '');
+                    const thumbPath = `/tmp/caelestia-thumb-${basename}.jpg`;
+                    return "file:///" + thumbPath.replace(/^\/+/, "");
+                }
+                return "file:///" + videoPath.replace(/^\/+/, "");
+            }
+            
+            sourceSize: {
+                const dpr = (QsWindow.window as QsWindow)?.devicePixelRatio ?? 1;
+                return Qt.size(image.implicitWidth * dpr, image.implicitHeight * dpr);
+            }
+        }
+        
+        // Force Image reload when a thumbnail finishes generating
+        Connections {
+            target: Wallpapers
+            function onThumbnailReady(path) {
+                if (path === wallpaperImage.videoPath) {
+                    wallpaperImage.status = Image.Loading;
+                    const basename = path.split('/').pop().replace(/\.[^.]+$/, '');
+                    wallpaperImage.source = "file:///tmp/caelestia-thumb-" + basename + ".jpg";
+                }
+            }
+        }
+        
+        // Trigger thumbnail generation for videos
+        Component.onCompleted: {
+            const path = root.modelData.path;
+            if (/\.(mp4|webm|mkv|mov|avi|m4v)$/i.test(path)) {
+                Wallpapers.getVideoThumbnail(path);
+            }
+        }
+
+        MaterialIcon {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: Tokens.padding.small
+            visible: /\.(mp4|webm|mkv|mov|avi|m4v)$/i.test(root.modelData.path)
+            text: "movie"
+            color: Colours.tPalette.m3onSurface
+            fontStyle: Tokens.font.icon.medium
         }
     }
 

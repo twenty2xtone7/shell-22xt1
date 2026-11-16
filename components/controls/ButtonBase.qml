@@ -46,7 +46,7 @@ StyledRect {
 
     property real pressedRadius: Tokens.rounding.small
     property real checkedRadius: Tokens.rounding.medium
-    property real defaultRadius: Tokens.rounding.large
+    property real defaultRadius: LiquidGlass.enabled ? LiquidGlass.controlRadius : Tokens.rounding.large
 
     signal clicked
 

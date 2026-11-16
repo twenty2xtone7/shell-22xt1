@@ -50,10 +50,29 @@ Variants {
                 sourceComponent: Wallpaper {}
             }
 
-            Visualiser {
+            Loader {
+                id: visualiserLoader
+
+                asynchronous: true
                 anchors.fill: parent
-                screen: win.modelData
-                wallpaper: wallpaper
+                active: Config.background.visualiser.enabled
+
+                sourceComponent: Visualiser {
+                    screen: win.modelData
+                    wallpaper: wallpaper
+                }
+            }
+
+            Loader {
+                id: snowfallLoader
+
+                asynchronous: true
+                anchors.fill: parent
+                active: Snow.enabled && Snow.count > 0
+
+                sourceComponent: Snowfall {
+                    screen: win.modelData
+                }
             }
         }
 

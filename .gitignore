@@ -1,6 +1,39 @@
-.direnv
-/result
-/.qmlls.ini
+# Dependencies
+node_modules/
+*.lock
+
+# Build outputs
+dist/
 build/
-.cache/
-logs
+*.qml.js
+
+# Configuration files
+!.config/quickshell/
+
+# Secrets and sensitive data
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Python
+__pycache__/
+*.pyc

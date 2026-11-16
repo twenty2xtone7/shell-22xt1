@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
+import qs.components.effects
 import qs.services
 
 Item {
@@ -16,11 +17,12 @@ Item {
         anchors.fill: parent
         spacing: Tokens.spacing.medium
 
-        StyledRect {
+        GlassSurface {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            radius: Tokens.rounding.large
+            radiusGroup: "card"
+            componentName: "sidebar"
             color: Colours.tPalette.m3surfaceContainerLow
 
             NotifDock {

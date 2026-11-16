@@ -16,23 +16,100 @@ Item {
         if (currentItem)
             currentItem.destroy();
 
-        const comp = PageCompRegistry.pageComps[idx] ?? PageCompRegistry.placeholderComp;
-        const incubator = comp.incubateObject(container, {
-            nState
-        });
+        const pageData = PageCompRegistry.pages[idx];
+        if (!pageData) {
+            console.warn("No page data for index", idx);
+            return;
+        }
 
-        const attach = () => {
-            incubator.object.anchors.fill = container;
-            currentItem = incubator.object;
+        if (pageData.placeholder) {
+            const incubator = PageCompRegistry.placeholderComponent.incubateObject(container, {
+                nState: root.nState
+            }, Qt.Asynchronous);
+
+            const attach = () => {
+                if (!incubator.object) {
+                    console.warn("Failed to incubate placeholder", idx, incubator.errorString());
+                    return;
+                }
+                incubator.object.anchors.fill = container;
+                currentItem = incubator.object;
+            };
+
+            if (incubator.status === Component.Ready)
+                attach();
+            else
+                incubator.onStatusChanged = status => {
+                    if (status === Component.Ready)
+                        attach();
+                    else if (status === Component.Error)
+                        console.warn("Failed to incubate placeholder", idx, incubator.errorString());
+                };
+            return;
+        }
+
+        // Resolve sub-page URLs to Components first, then pass them to
+        // StackPage at creation time. StackPage pushes pages[0] in
+        // Component.onCompleted, so assigning pages after incubation
+        // would leave the view empty.
+        const subPageComps = [];
+        for (const subUrl of pageData.subPages) {
+            const subComp = Qt.createComponent(Qt.resolvedUrl(subUrl));
+            if (subComp.status === Component.Ready) {
+                subPageComps.push(subComp);
+            } else if (subComp.status === Component.Error) {
+                console.warn("Failed to load", subUrl, subComp.errorString());
+            } else {
+                console.warn("Unexpected status loading", subUrl, subComp.status);
+            }
+        }
+
+        if (subPageComps.length === 0) {
+            console.warn("No sub-pages loaded for index", idx);
+            return;
+        }
+
+        const stackComp = Qt.createComponent(Qt.resolvedUrl("common/StackPage.qml"));
+        if (stackComp.status === Component.Error) {
+            console.warn("Failed to load StackPage:", stackComp.errorString());
+            return;
+        }
+
+        const createStack = () => {
+            const incubator = stackComp.incubateObject(container, {
+                nState: root.nState,
+                pages: subPageComps
+            }, Qt.Asynchronous);
+
+            const attachStack = () => {
+                if (!incubator.object) {
+                    console.warn("Failed to incubate StackPage for index", idx, incubator.errorString());
+                    return;
+                }
+                incubator.object.anchors.fill = container;
+                currentItem = incubator.object;
+            };
+
+            if (incubator.status === Component.Ready)
+                attachStack();
+            else
+                incubator.onStatusChanged = status => {
+                    if (status === Component.Ready)
+                        attachStack();
+                    else if (status === Component.Error)
+                        console.warn("Failed to incubate StackPage for index", idx, incubator.errorString());
+                };
         };
 
-        if (incubator.status === Component.Ready)
-            attach();
+        if (stackComp.status === Component.Ready)
+            createStack();
         else
-            incubator.onStatusChanged = status => {
+            stackComp.statusChanged.connect(status => {
                 if (status === Component.Ready)
-                    attach();
-            };
+                    createStack();
+                else if (status === Component.Error)
+                    console.warn("Failed to load StackPage:", stackComp.errorString());
+            });
     }
 
     Item {

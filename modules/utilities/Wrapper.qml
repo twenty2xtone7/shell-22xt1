@@ -5,6 +5,7 @@ import Quickshell
 import Caelestia
 import Caelestia.Config
 import qs.components
+import qs.services
 import qs.modules.sidebar as Sidebar
 import qs.modules.bar.popouts as BarPopouts
 
@@ -32,13 +33,21 @@ Item {
 
     visible: offsetScale < 1
     anchors.bottomMargin: (-implicitHeight - 5) * offsetScale
+    // Follow the card. Without this, the first layout freezes height, so
+    // recording start (list -> controls) never moves the panel and a closed
+    // sidebar stays stuck on the old bottom edge. Expand-all overrides this
+    // and rebinds it on collapse (see drawers/Panels.qml).
+    height: implicitHeight
     implicitHeight: content.implicitHeight + totalPadding
     implicitWidth: sidebar.width * (1 - sidebar.offsetScale) * horizontalStretch * sidebarLerp + Tokens.sizes.utilities.width * (1 - sidebarLerp)
     opacity: 1 - offsetScale
 
     states: State {
         name: "attachedToSidebar"
-        when: root.screenState.sidebar
+        // The utilities card only merges into the sidebar when they share an
+        // edge; when the sidebar flips to the left side they stay separate and
+        // the utilities keeps its own width.
+        when: root.screenState.sidebar && !BarState.sidebarOnLeft
 
         PropertyChanges {
             root.sidebarLerp: 1
@@ -77,11 +86,14 @@ Item {
         anchors.left: parent.left
         anchors.margins: Tokens.padding.large
 
-        asynchronous: true
+        asynchronous: false
         active: root.shouldBeActive || root.visible
 
         sourceComponent: Content {
             implicitWidth: root.implicitWidth - root.totalPadding
+            // Follows the wrapper height: identical in normal mode (no cap),
+            // capped + scrollable while notification expand-all squeezes us.
+            maxHeight: root.height - root.totalPadding
             props: root.props
             screenState: root.screenState
             popouts: root.popouts

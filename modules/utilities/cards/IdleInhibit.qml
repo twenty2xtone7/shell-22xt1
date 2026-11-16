@@ -2,10 +2,10 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Config
 import Caelestia.I18n
-import Caelestia.State
 import qs.components
 import qs.components.controls
 import qs.services
+import Caelestia.State
 
 StyledRect {
     id: root
@@ -14,7 +14,7 @@ StyledRect {
 
     implicitHeight: nonAnimHeight
 
-    radius: Tokens.rounding.large
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
     color: Colours.tPalette.m3surfaceContainer
     clip: true
 
@@ -73,7 +73,7 @@ StyledRect {
     Loader {
         id: activeChip
 
-        asynchronous: true
+        asynchronous: false
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.topMargin: Tokens.spacing.large
@@ -97,7 +97,7 @@ StyledRect {
 
                 anchors.centerIn: parent
                 // TRANSLATORS: %1 = a clock time, e.g. 14:30
-                text: Tr.tr("Active since %1").arg(Tr.formatDateTime(new Date(RuntimeState.inhibitingIdleSince), Units.twelveHourClock ? "hh:mm a" : "hh:mm"))
+                text: Tr.tr("Active since %1").arg(Qt.formatTime(new Date(RuntimeState.inhibitingIdleSince), Units.twelveHourClock ? "hh:mm a" : "hh:mm"))
                 color: Colours.palette.m3onPrimary
                 font: Tokens.font.body.builders.small.size(Math.round(Tokens.font.body.small.pointSize * 0.9)).build()
             }

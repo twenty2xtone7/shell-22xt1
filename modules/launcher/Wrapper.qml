@@ -51,6 +51,12 @@ Item {
 
         active: root.shouldBeActive || root.visible
 
+        onLoaded: {
+            const dt = Date.now() - ClipboardService._openAt;
+            if (dt < 5000)
+                console.info(`[clip-perf] window-ready +${dt}ms`);
+        }
+
         sourceComponent: Content {
             screenState: root.screenState
             panels: root.panels

@@ -42,7 +42,7 @@ StyledListView {
     function resultsForText(text: string): var {
         switch (stateForText(text)) {
         case "actions":
-            return Actions.query(text);
+            return [...CommandRegistry.matches(text), ...Actions.clipboardMatches(text), ...Actions.musicMatches(text), ...Actions.translateMatches(text), ...FanCtl.fanMatches(text), ...Actions.query(text)];
         case "calc":
             return [0];
         case "scheme":
@@ -50,7 +50,7 @@ StyledListView {
         case "variant":
             return M3Variants.query(text);
         default:
-            return Apps.search(text);
+            return [...CommandRegistry.matches(text), ...Apps.search(text)];
         }
     }
 
@@ -250,8 +250,44 @@ StyledListView {
     Component {
         id: appItem
 
-        AppItem {
-            screenState: root.screenState
+        // Commands and apps share the apps state, so the delegate dispatches
+        // on the result's `__command` marker. Non-command results keep using
+        // the untouched AppItem delegate.
+        Item {
+            id: appDelegate
+
+            required property var modelData
+            required property int index
+
+            anchors.left: parent?.left
+            anchors.right: parent?.right
+            implicitHeight: loader.item?.implicitHeight ?? Tokens.sizes.launcher.itemHeight
+
+            Loader {
+                id: loader
+
+                anchors.fill: parent
+                sourceComponent: appDelegate.modelData && appDelegate.modelData.__command ? commandItem : appEntry
+
+                Component {
+                    id: appEntry
+
+                    AppItem {
+                        modelData: appDelegate.modelData
+                        screenState: root.screenState
+                        list: root
+                    }
+                }
+
+                Component {
+                    id: commandItem
+
+                    CommandItem {
+                        modelData: appDelegate.modelData
+                        list: root
+                    }
+                }
+            }
         }
     }
 

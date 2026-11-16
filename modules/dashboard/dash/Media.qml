@@ -10,9 +10,12 @@ import qs.components.controls
 import qs.components.widgets
 import qs.services
 import qs.utils
+import qs.modules.bar as Bar
 
 Item {
     id: root
+
+    required property ScreenState screenState
 
     property real playerProgress: {
         const active = Players.active;
@@ -39,8 +42,9 @@ Item {
         onTriggered: Players.active?.positionChanged()
     }
 
-    ServiceRef {
-        service: Audio.beatTracker
+    QtObject {
+        Component.onCompleted: Audio.acquireVisualiser()
+        Component.onDestruction: Audio.releaseVisualiser()
     }
 
     CircularProgress {
@@ -69,6 +73,37 @@ Item {
         anchors.right: parent.right
         anchors.margins: Tokens.padding.medium + root.arcCoverGap + prog.thickness
         implicitHeight: width
+
+        StyledRect {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.5)
+            opacity: hover.containsMouse ? 1 : 0
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+
+            StyledText {
+                anchors.centerIn: parent
+                text: "open dyn-lyrics"
+                font: Tokens.font.body.builders.small.build()
+                color: "white"
+            }
+
+            MouseArea {
+                id: hover
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: {
+                    const comps = ShellState.componentsFor(root.screenState.modelData);
+                    if (comps?.dynLyrics)
+                        comps.dynLyrics.active = true;
+                    root.screenState.dashboard = false;
+                }
+            }
+        }
     }
 
     StyledText {
@@ -173,7 +208,7 @@ Item {
         anchors.margins: Tokens.padding.extraLargeIncreased
 
         playing: Players.active?.isPlaying ?? false
-        speed: Audio.beatTracker.bpm / Config.general.mediaGifSpeedAdjustment
+        speed: (Audio.beatTracker?.bpm || 100) / Config.general.mediaGifSpeedAdjustment // qmllint disable unresolved-type
         source: Paths.absolutePath(Config.paths.mediaGif)
         asynchronous: true
         fillMode: AnimatedImage.PreserveAspectFit

@@ -8,6 +8,7 @@ import qs.components
 import qs.services
 import qs.utils
 import qs.modules.nexus.common
+import qs.modules.launcher.services
 
 PageBase {
     id: root
@@ -101,6 +102,42 @@ PageBase {
             onToggled: {
                 const apps = GlobalConfig.launcher.hiddenApps;
                 GlobalConfig.launcher.hiddenApps = checked ? [...apps, root.app.id] : apps.filter(a => a !== root.app.id);
+            }
+        }
+
+        // Uninstall (two-click: arm, then confirm). System packages go
+        // through polkit; failures and successes report via toast.
+        SectionHeader {
+            text: Tr.tr("Uninstall")
+        }
+
+        RowButton {
+            id: uninstallBtn
+
+            property bool arming: false
+
+            icon: "delete"
+            text: uninstallBtn.arming ? Tr.tr("Click again to confirm uninstall") : Tr.tr("Uninstall this app")
+            subtext: uninstallBtn.arming ? Tr.tr("Removes the pacman / Flatpak package") : Tr.tr("pacman, AUR, Flatpak or stray launcher entry")
+            trailingIcon: "chevron_right"
+            disabled: !root.app
+
+            onClicked: {
+                if (!root.app)
+                    return;
+                if (!uninstallBtn.arming) {
+                    uninstallBtn.arming = true;
+                    return;
+                }
+                uninstallBtn.arming = false;
+                Uninstall.doRemove(root.app, null);
+            }
+        }
+
+        Connections {
+            target: root
+            function onAppChanged(): void {
+                uninstallBtn.arming = false;
             }
         }
 

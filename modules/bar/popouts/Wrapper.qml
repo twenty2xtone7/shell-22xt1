@@ -133,8 +133,8 @@ Item {
         shouldBeActive: root.detachedMode === "any"
         anchors.centerIn: parent
 
-        sourceComponent: ClipRect {
-            radius: Tokens.rounding.extraLarge
+        sourceComponent: StyledClippingRect {
+            radius: LiquidGlass.enabled ? LiquidGlass.popupRadius : Tokens.rounding.extraLarge
             implicitWidth: nexusInner.implicitWidth
             implicitHeight: nexusInner.implicitHeight
 

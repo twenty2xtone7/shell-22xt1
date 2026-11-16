@@ -1,8 +1,11 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Layouts
+import Caelestia
 import Caelestia.Config
 import qs.components
+import qs.components.controls
 
 Item {
     id: root
@@ -31,6 +34,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
 
+        asynchronous: false
         active: root.shouldBeActive || root.visible
 
         sourceComponent: Content {

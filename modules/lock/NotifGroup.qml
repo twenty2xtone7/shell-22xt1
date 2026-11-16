@@ -49,7 +49,7 @@ StyledRect {
     implicitHeight: content.implicitHeight + Tokens.padding.medium * 2
 
     clip: true
-    radius: Tokens.rounding.large
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
     color: root.urgency === "critical" ? Colours.palette.m3secondaryContainer : Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
 
     RowLayout {
@@ -105,7 +105,7 @@ StyledRect {
                 }
             }
 
-            ClipRect {
+            ClippingRectangle {
                 anchors.fill: parent
                 color: root.urgency === "critical" ? Colours.palette.m3error : root.urgency === "low" ? Colours.layer(Colours.palette.m3surfaceContainerHighest, 3) : Colours.palette.m3secondaryContainer
                 radius: Tokens.rounding.full

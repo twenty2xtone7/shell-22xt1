@@ -16,7 +16,7 @@ StyledRect {
     anchors.right: parent.right
     implicitHeight: layout.implicitHeight + Tokens.padding.large
 
-    radius: Tokens.rounding.large
+    radius: LiquidGlass.enabled ? LiquidGlass.cardRadius : Tokens.rounding.large
     color: {
         if (root.modelData.type === Toast.Success)
             return Colours.palette.m3successContainer;

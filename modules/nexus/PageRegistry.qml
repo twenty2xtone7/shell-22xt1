@@ -14,6 +14,12 @@ QtObject {
             description: Tr.tr("Wallpaper, fonts, colours"),
             category: "appearance"
         },
+        {
+            label: Tr.tr("Liquid Glass"),
+            icon: "blur_on",
+            description: Tr.tr("Glass material, depth, shape"),
+            category: "appearance"
+        },
 
         // Connectivity
         // TODO
@@ -77,9 +83,23 @@ QtObject {
             category: "shell"
         },
         {
+            label: Tr.tr("Recordings"),
+            icon: "video_library",
+            description: Tr.tr("Screen recordings"),
+            category: "shell"
+        },
+        {
             label: Tr.tr("Language & region"),
             icon: "globe",
             description: Tr.tr("UI language, weather location, display units"),
+            category: "shell"
+        },
+
+        // Dyn Lyrics
+        {
+            label: Tr.tr("Lyrics"),
+            icon: "lyrics",
+            description: Tr.tr("Panel, animation, typography, behaviour"),
             category: "shell"
         },
 

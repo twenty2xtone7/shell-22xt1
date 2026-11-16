@@ -54,10 +54,13 @@ LazyListView {
             required property string modelData
 
             readonly property bool closed: notifInner.notifCount === 0
+            property int startX
             property int startY
 
             function closeAll(): void {
-                clearTimer.start();
+                // Instant bulk clear (see Notifs.clearAll): the old
+                // 30-per-tick trickle froze the shell on large groups.
+                Notifs.clearAll(n => n.appName === notif.modelData);
             }
 
             LazyListView.trackViewport: !notifInner.expanded && notifInner.nonAnimHeight < notifInner.implicitHeight
@@ -78,11 +81,23 @@ LazyListView {
             drag.axis: Drag.XAxis
 
             onPressed: event => {
+                startX = event.x;
                 startY = event.y;
                 if (event.button === Qt.RightButton)
                     notifInner.toggleExpand(!notifInner.expanded);
                 else if (event.button === Qt.MiddleButton)
                     closeAll();
+            }
+            onClicked: event => {
+                if (event.button !== Qt.LeftButton)
+                    return;
+
+                // Drags (swipe-to-dismiss, drag-to-expand) also release
+                // here; only a near-stationary press counts as a click.
+                if (Math.hypot(event.x - startX, event.y - startY) > 12)
+                    return;
+
+                notifInner.toggleExpand(!notifInner.expanded);
             }
             onPositionChanged: event => {
                 if (pressed) {
@@ -96,24 +111,6 @@ LazyListView {
                     x = 0;
                 else
                     closeAll();
-            }
-
-            Timer {
-                id: clearTimer
-
-                interval: 15
-                repeat: true
-                triggeredOnStart: true
-                onTriggered: {
-                    const notifs = Notifs.notClosed.filter(n => n.appName === notif.modelData);
-                    if (notifs.length === 0) {
-                        stop();
-                        return;
-                    }
-
-                    for (const n of notifs.slice(0, 30))
-                        n.close();
-                }
             }
 
             NotifGroup {

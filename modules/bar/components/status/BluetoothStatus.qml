@@ -6,12 +6,15 @@ import Quickshell
 import Quickshell.Bluetooth
 import Caelestia.Config
 import qs.components
+import qs.services
 import qs.utils
 
 Item {
     id: root
 
     required property color colour
+
+    readonly property bool horizontal: BarState.horizontal
 
     implicitWidth: layout.implicitWidth
     implicitHeight: layout.implicitHeight
@@ -22,18 +25,22 @@ Item {
         }
     }
 
-    ColumnLayout {
+    GridLayout {
         id: layout
 
-        spacing: Tokens.spacing.medium / 2
+        columns: root.horizontal ? -1 : 1
+        rows: root.horizontal ? 1 : -1
+        rowSpacing: Tokens.spacing.medium / 2
+        columnSpacing: Tokens.spacing.medium / 2
 
         // Bluetooth icon
         MaterialIcon {
+            Layout.alignment: root.horizontal ? Qt.AlignVCenter : Qt.AlignHCenter
             animate: true
             text: {
-                if (!Bluetooth.defaultAdapter?.enabled)
+                if (!Bluetooth.defaultAdapter?.enabled) // qmllint disable unresolved-type
                     return "bluetooth_disabled";
-                if (Bluetooth.devices.values.some(d => d.connected))
+                if (Bluetooth.devices.values.some(d => d.connected)) // qmllint disable unresolved-type
                     return "bluetooth_connected";
                 return "bluetooth";
             }
@@ -43,7 +50,7 @@ Item {
         // Connected bluetooth devices
         Repeater {
             model: ScriptModel {
-                values: Bluetooth.devices.values.filter(d => d.state !== BluetoothDeviceState.Disconnected)
+                values: Bluetooth.devices.values.filter(d => d.state !== BluetoothDeviceState.Disconnected) // qmllint disable unresolved-type
             }
 
             MaterialIcon {
@@ -51,13 +58,14 @@ Item {
 
                 required property BluetoothDevice modelData
 
+                Layout.alignment: root.horizontal ? Qt.AlignVCenter : Qt.AlignHCenter
                 animate: true
                 text: Icons.getBluetoothIcon(modelData?.icon)
                 color: root.colour
                 fill: 1
 
                 SequentialAnimation on opacity {
-                    running: device.modelData?.state !== BluetoothDeviceState.Connected
+                    running: device.modelData?.state !== BluetoothDeviceState.Connected // qmllint disable unresolved-type
                     alwaysRunToEnd: true
                     loops: Animation.Infinite
 
@@ -67,6 +75,7 @@ Item {
                         duration: Tokens.anim.durations.large
                         easing: Tokens.anim.standardAccel
                     }
+
                     Anim {
                         from: 0
                         to: 1

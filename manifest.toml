@@ -1,0 +1,54 @@
+# Caelestia fork — upstream shell with caelestia-fork-wip's features integrated
+# at source level. Deployed by `caelestia install`.
+#
+# Only the QML shell tree is deployed. Hyprland config is intentionally NOT in
+# this manifest: the fork's shell does not depend on it, and overwriting
+# ~/.config/hypr from a snapshot would clobber a live, hand-tuned config.
+packages = []
+
+# The C++ plugin (Caelestia.* QML modules) has to be built from this same tree and
+# made importable, otherwise the deployed shell cannot resolve Caelestia.Services
+# and friends. shell.qml points QML_IMPORT_PATH at the copy destination below.
+post_install = [
+    'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release',
+    'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
+    'rm -rf "$HOME/.local/share/caelestia/qml"',
+    'cp -r "$CAELESTIA_DOTS/build/qml" "$HOME/.local/share/caelestia/qml"',
+]
+
+post_update = [
+    'caelestia shell -k >/dev/null 2>&1 || true',
+]
+
+[[components]]
+name = "shell"
+default = true
+packages = []
+
+[[components.entries]]
+src = "shell.qml"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/shell.qml"
+
+[[components.entries]]
+src = "assets"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/assets"
+
+[[components.entries]]
+src = "components"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/components"
+
+[[components.entries]]
+src = "daemons"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/daemons"
+
+[[components.entries]]
+src = "modules"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/modules"
+
+[[components.entries]]
+src = "services"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/services"
+
+[[components.entries]]
+src = "utils"
+dest = "$XDG_CONFIG_HOME/quickshell/caelestia/utils"

@@ -12,7 +12,6 @@ import qs.components
 import qs.components.containers
 import qs.services
 import qs.modules.bar
-import qs.daemons
 
 StyledWindow {
     id: root
@@ -39,17 +38,17 @@ StyledWindow {
     property real fsTransitionProg: hasFullscreen ? 1 : 0
     readonly property real sdfBorderOffset: 2 * fsTransitionProg // SDFs joins are not exact, so offset by 2px to ensure nothing shows
     readonly property real borderThickness: contentItem.Config.border.thickness * (1 - fsTransitionProg)
-    readonly property real borderRounding: (GameMode.enabled && GlobalConfig.utilities.gameMode.options["decoration:rounding"] === 0 ? 0 : contentItem.Config.border.rounding) * (1 - fsTransitionProg)
-    readonly property real shadowOpacity: 0.7 * (1 - fsTransitionProg)
+    readonly property real borderRounding: contentItem.Config.border.rounding * (1 - fsTransitionProg)
+    readonly property real shadowOpacity: (LiquidGlass.enabled ? LiquidGlass.shadowOpacity : 0.7) * (1 - fsTransitionProg)
     readonly property real borderLayoutThickness: hasFullscreen ? 0 : contentItem.Config.border.thickness
 
-    property color surfaceColour: Colours.tPalette.m3surface
+    property color surfaceColour: LiquidGlass.enabled ? Colours.glassFill : Colours.tPalette.m3surface
 
     readonly property int dragMaskPadding: {
         if (focusGrab.active || panels.popouts.isDetached)
             return 0;
 
-        if (monitor?.lastIpcObject.specialWorkspace?.name || monitor?.activeWorkspace?.toplevels.values.length > 0)
+        if (monitor?.lastIpcObject.specialWorkspace?.name || monitor?.activeWorkspace?.lastIpcObject.windows > 0)
             return 0;
 
         const thresholds = [];
@@ -65,11 +64,14 @@ StyledWindow {
         screenState.dashboard = false;
         panels.popouts.close();
     }
-
     name: "drawers"
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: (fsTransitionProg > 0 && contentItem.Config.general.showOverFullscreen) || (hasSpecialWorkspace && hasFullscreenOnNormalWs) ? WlrLayer.Overlay : WlrLayer.Top
-    WlrLayershell.keyboardFocus: screenState.launcher || screenState.session ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // NB: dashboard must be included — the calendar dialogs contain text
+    // fields, and without keyboard focus the layer-shell window never
+    // receives key events (mouse still works), making typing impossible.
+    // Ruler seeking also takes focus to allow spacebar playback control.
+    WlrLayershell.keyboardFocus: (screenState.launcher || screenState.session || screenState.dashboard || panels.dynLyrics.seeking) ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     mask: hasFullscreen ? emptyRegion : regions
 
@@ -89,14 +91,14 @@ StyledWindow {
     Region {
         id: emptyRegion
 
-        x: panels.notifications.x + bar.implicitWidth
-        y: panels.notifications.y + root.borderThickness
+        x: panels.notifications.x + bar.panelsOffsetX
+        y: panels.notifications.y + bar.panelsOffsetY
         width: panels.notifications.width
         height: panels.notifications.height
 
         Region {
-            x: root.width - width
-            y: panels.osdWrapper.y + root.borderThickness
+            x: BarState.osdOnLeft ? 0 : root.width - width
+            y: panels.osdWrapper.y + bar.panelsOffsetY
             width: panels.osdWrapper.width * (1 - panels.osd.offsetScale) + root.borderThickness
             height: panels.osd.height
         }
@@ -122,10 +124,16 @@ StyledWindow {
                 return true;
             if (panels.popouts.currentName.startsWith("traymenu") && (panels.popouts.current as StackView)?.depth > 1)
                 return true;
+            if (panels.popouts.hasCurrent && panels.popouts.currentName === "barposition")
+                return true;
             return false;
         }
         windows: [root]
         onCleared: {
+            // The radial menu takes focus while open but must not interrupt
+            // other drawers; leave everything as-is until it closes.
+            if (Radial.open)
+                return;
             root.screenState.launcher = false;
             root.screenState.session = false;
             root.screenState.sidebar = false;
@@ -150,10 +158,10 @@ StyledWindow {
     Item {
         anchors.fill: parent
         opacity: root.surfaceColour.a
-        layer.enabled: true
+        layer.enabled: root.shadowOpacity > 0.01 && (root.screenState.dashboard || root.screenState.launcher || root.screenState.session || root.screenState.sidebar || root.screenState.utilities || root.screenState.osd || panels.popouts.hasCurrent)
         layer.effect: MultiEffect {
             shadowEnabled: true
-            blurMax: 15
+            blurMax: LiquidGlass.enabled ? Math.max(1, LiquidGlass.shadowBlur) : 15
             shadowColor: Qt.alpha(Colours.palette.m3shadow, Math.max(0, root.shadowOpacity))
         }
 
@@ -169,10 +177,10 @@ StyledWindow {
             anchors.margins: -50 // Make border thicker to smooth out bulge from closed drawers
             group: blobGroup
             radius: root.borderRounding
-            borderLeft: bar.implicitWidth - anchors.margins - root.sdfBorderOffset
-            borderRight: root.borderThickness - anchors.margins - root.sdfBorderOffset
-            borderTop: root.borderThickness - anchors.margins - root.sdfBorderOffset
-            borderBottom: root.borderThickness - anchors.margins - root.sdfBorderOffset
+            borderLeft: (BarState.vertical && BarState.atStart ? bar.implicitWidth : root.borderThickness) - anchors.margins - root.sdfBorderOffset
+            borderRight: (BarState.vertical && BarState.atEnd ? bar.implicitWidth : root.borderThickness) - anchors.margins - root.sdfBorderOffset
+            borderTop: (BarState.horizontal && BarState.atStart ? bar.implicitHeight : root.borderThickness) - anchors.margins - root.sdfBorderOffset
+            borderBottom: (BarState.horizontal && BarState.atEnd ? bar.implicitHeight : root.borderThickness) - anchors.margins - root.sdfBorderOffset
         }
 
         PanelBg {
@@ -194,7 +202,7 @@ StyledWindow {
 
             panel: panels.sessionWrapper
             deformAmount: 0.2
-            x: panels.sessionWrapper.x + panels.session.x + bar.implicitWidth
+            x: panels.sessionWrapper.x + panels.session.x + bar.panelsOffsetX
             implicitWidth: panels.session.width
         }
 
@@ -204,8 +212,8 @@ StyledWindow {
             panel: panels.sidebar
             deformAmount: 0.03
             implicitHeight: panel.height * (1 / rawDeformMatrix.m22) + 2
-            exclude: panels.sidebar.offsetScale > 0.08 ? [] : [utilsBg]
-            bottomLeftRadius: Math.max(0, Math.min(1, panels.sidebar.offsetScale / 0.3)) * radius
+            exclude: (BarState.sidebarOnLeft || panels.sidebar.offsetScale > 0.08) ? [] : [utilsBg]
+            bottomLeftRadius: BarState.sidebarOnLeft ? 0 : Math.max(0, Math.min(1, panels.sidebar.offsetScale / 0.3)) * radius
         }
 
         PanelBg {
@@ -213,7 +221,7 @@ StyledWindow {
 
             panel: panels.osdWrapper
             deformAmount: 0.25
-            x: panels.osdWrapper.x + panels.osd.x + bar.implicitWidth
+            x: panels.osdWrapper.x + panels.osd.x + bar.panelsOffsetX
             implicitWidth: panels.osd.width
         }
 
@@ -228,8 +236,26 @@ StyledWindow {
 
             panel: panels.utilities
             deformAmount: panels.sidebar.visible ? 0.1 : 0.15
-            exclude: panels.sidebar.offsetScale > 0.08 ? [] : [sidebarBg]
-            topLeftRadius: Math.max(0, Math.min(1, panels.sidebar.offsetScale / 0.3)) * radius
+            exclude: (BarState.sidebarOnLeft || panels.sidebar.offsetScale > 0.08) ? [] : [sidebarBg]
+            topLeftRadius: BarState.sidebarOnLeft ? 0 : Math.max(0, Math.min(1, panels.sidebar.offsetScale / 0.3)) * radius
+        }
+
+        PanelBg {
+            id: dynLyricsBg
+
+            // The dynamic-island lyric panel: same shell-panel surface as the
+            // bar popouts and the dashboard, so it grows out of the edge it
+            // hangs from and merges with the bar/border strip instead of
+            // floating as a detached pill. It must stay in `blobGroup`: the
+            // merge is what makes the panel read as attached to the edge.
+            panel: panels.dynLyrics
+            deformAmount: 0.15
+            // Square corners on the attached edge; the rounded end faces the
+            // screen interior, the way a popout sits against the bar.
+            topLeftRadius: 0
+            topRightRadius: 0
+            bottomLeftRadius: DynLyricsConfig.cornerRadius
+            bottomRightRadius: DynLyricsConfig.cornerRadius
         }
 
         PanelBg {
@@ -240,7 +266,7 @@ StyledWindow {
 
             panel: panels.popoutsWrapper
             deformAmount: panels.popouts.isDetached ? 0.05 : panels.popouts.hasCurrent ? 0.15 : 0.1
-            x: panels.popoutsWrapper.x + panels.popouts.x + bar.implicitWidth - panels.popouts.width * extraWidth
+            x: panels.popoutsWrapper.x + panels.popouts.x + bar.panelsOffsetX - panels.popouts.width * extraWidth
             implicitWidth: panels.popouts.width * (1 + extraWidth)
 
             Behavior on extraWidth {
@@ -268,7 +294,7 @@ StyledWindow {
             bar: bar
             borderThickness: root.borderThickness
 
-            utilities.horizontalStretch: (sidebarBg.rawDeformMatrix.m11 - 1) / 2 + 1
+            utilities.horizontalStretch: BarState.sidebarOnLeft ? 1 : (sidebarBg.rawDeformMatrix.m11 - 1) / 2 + 1
             utilities.deformMatrix: utilsBg.rawDeformMatrix
 
             dashboard.transform: Matrix4x4 {
@@ -295,13 +321,13 @@ StyledWindow {
             popouts.transform: Matrix4x4 {
                 matrix: popoutBg.deformMatrix
             }
+            dynLyrics.transform: Matrix4x4 {
+                matrix: dynLyricsBg.deformMatrix
+            }
         }
 
         BarWrapper {
             id: bar
-
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
 
             screen: root.screen
             screenState: root.screenState
@@ -340,11 +366,11 @@ StyledWindow {
         property real deformAmount: 0.15
 
         group: blobGroup
-        x: panel.x + bar.implicitWidth
-        y: panel.y + root.borderThickness
+        x: panel.x + bar.panelsOffsetX
+        y: panel.y + bar.panelsOffsetY
         implicitWidth: panel.width
         implicitHeight: panel.height
-        radius: Tokens.rounding.extraLarge
+        radius: LiquidGlass.enabled ? LiquidGlass.cornerRadius : Tokens.rounding.extraLarge
         deformScale: (deformAmount * Config.appearance.deformScale) / 10000
     }
 }
