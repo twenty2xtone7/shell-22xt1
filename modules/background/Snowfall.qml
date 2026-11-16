@@ -2,28 +2,24 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import QtQuick.Particles
 import qs.components
 import qs.services
 
-// Desktop-only snowfall, on the background layer behind windows and panels.
-//
-// Runs on Qt's C++ particle engine (QtQuick.Particles), not on a per-frame QML
-// JS loop: motion, respawn, rotation and fade are batched on the render thread,
-// so a snowfall never competes with the GUI thread for frame budget. The previous
-// implementation drove up to 1000 Rectangles from FrameAnimation (~4 property
-// writes each per frame), which starved the first frames of any panel animation.
+// Desktop-only snowfall. Instantiated inside Background.qml so it renders
+// on the background layer, behind windows and panels.
 Item {
     id: root
 
     required property ShellScreen screen
 
-    // A fullscreen window covers the desktop, so snow isn't visible — stop the system
-    readonly property bool covered: (Hypr.monitorFor(screen)?.activeWorkspace?.toplevels?.values ?? []).some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1)
-    readonly property bool active: Snow.enabled && Snow.count > 0
+    property var states: []
+    property real elapsed: 0
 
+    // A fullscreen window covers the desktop, so snow isn't visible — stop ticking
+    readonly property bool covered: (Hypr.monitorFor(screen)?.activeWorkspace?.toplevels?.values ?? []).some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1)
+
+    opacity: Snow.enabled && Snow.count > 0 ? 1 : 0
     visible: opacity > 0
-    opacity: active && !covered ? 1 : 0
 
     Behavior on opacity {
         Anim {
@@ -31,55 +27,206 @@ Item {
         }
     }
 
-    ParticleSystem {
-        id: sys
-
-        running: root.opacity > 0
+    function rand(lo: real, hi: real): real {
+        return lo + Math.random() * (hi - lo);
     }
 
-    Emitter {
-        id: emitter
+    function makeState(scatterY: bool): var {
+        const size = rand(Snow.minSize, Snow.maxSize);
+        // 0..1 fraction across the size range, used for depth scaling
+        const sizeFrac = Snow.maxSize > Snow.minSize ? (size - Snow.minSize) / (Snow.maxSize - Snow.minSize) : 0.5;
+        let speed = rand(Snow.minSpeed, Snow.maxSpeed);
+        if (Snow.depth)
+            speed *= 0.6 + sizeFrac * 0.8;
+        const opacity = rand(Snow.minOpacity, Snow.maxOpacity);
+        return {
+            bx: Math.random() * Math.max(1, root.width),
+            y: scatterY ? Math.random() * Math.max(1, root.height) : -size - rand(0, 60),
+            size,
+            speed,
+            phase: Math.random() * Math.PI * 2,
+            swayAmp: Snow.sway * rand(0.4, 1.0),
+            opacity,
+            rot: Math.random() * 360,
+            rotDir: Math.random() < 0.5 ? -1 : 1,
+            rotFrac: Math.random(),
+            age: 0,
+            lifetime: rand(Snow.minLifetime, Snow.maxLifetime)
+        };
+    }
 
-        system: sys
-        // Spawn along the top edge so flakes enter from off-screen
-        y: -24
-        width: parent.width
-        height: 1
-        lifeSpan: 16000
-        lifeSpanVariation: 2000
-        // Steady-state population = emitRate * lifeSpan / 1000
-        emitRate: Snow.count / (lifeSpan / 1000)
-        size: (Snow.minSize + Snow.maxSize) / 2
-        sizeVariation: (Snow.maxSize - Snow.minSize) / 2
-        velocity: AngleDirection {
-            // 90deg is straight down; wind tilts the fall direction
-            angle: 90 - 31 * Snow.wind
-            angleVariation: 4
-            magnitude: (Snow.minSpeed + Snow.maxSpeed) / 2
-            magnitudeVariation: (Snow.maxSpeed - Snow.minSpeed) / 2
+    function rebuild(): void {
+        const n = Snow.enabled ? Snow.count : 0;
+        const next = [];
+        for (let i = 0; i < n; i++)
+            next.push(makeState(true));
+        states = next;
+        // Rebuild delegates to match; init happens in onItemAdded
+        rep.model = 0;
+        rep.model = n;
+    }
+
+    function restyle(): void {
+        // Live-update look params without resetting positions
+        for (let i = 0; i < states.length; i++) {
+            const item = rep.itemAt(i);
+            const st = states[i];
+            if (!item || !st)
+                continue;
+            item.width = st.size;
+            item.height = st.size;
+            item.radius = Snow.shape === 0 ? st.size / 2 : Math.min(3, st.size / 4);
+            item.opacity = st.opacity;
+            item.color = Snow.color;
         }
     }
 
-    Wander {
-        system: sys
-        // xVariance is a lateral speed (px/s); pace is the time between direction
-        // changes in ms, so it has to be the sway period, not the rate.
-        xVariance: Snow.sway
-        pace: Snow.swaySpeed > 0 ? Math.round(1000 / Snow.swaySpeed) : 1000
+    function respawn(index: int, item: Item, scatter: bool): void {
+        const fresh = makeState(scatter);
+        if (!scatter)
+            fresh.bx = Math.random() * Math.max(1, root.width);
+        states[index] = fresh;
+        item.width = fresh.size;
+        item.height = fresh.size;
+        item.radius = Snow.shape === 0 ? fresh.size / 2 : Math.min(3, fresh.size / 4);
+        item.opacity = fresh.opacity;
+        item.color = Snow.color;
+        item.rotation = fresh.rot;
+        item.scale = 1;
+        item.x = fresh.bx;
+        item.y = fresh.y;
     }
 
-    ImageParticle {
-        system: sys
-
-        source: Snow.shape === 0 ? Qt.resolvedUrl("../../assets/snow/flake-round.png") : Qt.resolvedUrl("../../assets/snow/flake-square.png")
-        color: Snow.color
-        alpha: Snow.maxOpacity
-        alphaVariation: Snow.maxOpacity - Snow.minOpacity
-        // Fade out over the last fifth of each flake's life instead of popping
-        opacityTable: Qt.resolvedUrl("../../assets/snow/fade.png")
-        sizeTable: Snow.decayEnabled ? Qt.resolvedUrl("../../assets/snow/fade.png") : ""
-        autoRotation: Snow.spin
-        rotationVelocity: Snow.spin ? Snow.spinSpeed : 0
-        rotationVelocityVariation: Snow.spin ? Snow.spinSpeed * 0.4 : 0
+    function tick(frameTime: real): void {
+        // FrameAnimation.frameTime is in seconds; clamp spikes (e.g. after suspend)
+        const dt = Math.min(0.1, frameTime);
+        elapsed += dt;
+        const w = root.width;
+        const h = root.height;
+        if (w <= 0 || h <= 0)
+            return;
+        const wind = Snow.wind;
+        const swayFreq = Snow.swaySpeed * Math.PI * 2;
+        const spin = Snow.spin;
+        const decay = Snow.decayEnabled;
+        const shrinkTime = Math.max(0.05, Snow.shrinkTime);
+        for (let i = 0; i < states.length; i++) {
+            const item = rep.itemAt(i);
+            const st = states[i];
+            if (!item || !st)
+                continue;
+            st.y += st.speed * dt;
+            st.bx += wind * st.speed * 0.6 * dt;
+            const margin = st.size + 12;
+            if (st.y > h + margin) {
+                respawn(i, item, false);
+                continue;
+            }
+            // Lifetime decay: shrink to nothing once past the lifetime, then respawn
+            let sc = 1;
+            if (decay) {
+                st.age = (st.age || 0) + dt;
+                if (st.age > (st.lifetime || 0)) {
+                    const k = (st.age - st.lifetime) / shrinkTime;
+                    if (k >= 1) {
+                        respawn(i, item, false);
+                        continue;
+                    }
+                    sc = 1 - k;
+                }
+            }
+            if (st.bx < -margin)
+                st.bx = w + margin;
+            else if (st.bx > w + margin)
+                st.bx = -margin;
+            item.scale = sc;
+            item.x = st.bx + Math.sin(elapsed * swayFreq + st.phase) * st.swayAmp;
+            item.y = st.y;
+            if (spin)
+                item.rotation += st.rotDir * Snow.spinSpeed * (0.3 + st.rotFrac * 0.7) * dt;
+        }
     }
+
+    Repeater {
+        id: rep
+
+        delegate: Rectangle {
+            antialiasing: true
+            // Shrink towards the flake center during lifetime decay
+            transformOrigin: Item.Center
+        }
+
+        onItemAdded: (index, item) => {
+            const st = root.states[index];
+            if (!st)
+                return;
+            item.width = st.size;
+            item.height = st.size;
+            item.radius = Snow.shape === 0 ? st.size / 2 : Math.min(3, st.size / 4);
+            item.opacity = st.opacity;
+            item.color = Snow.color;
+            item.rotation = st.rot;
+            item.scale = 1;
+            item.x = st.bx;
+            item.y = st.y;
+        }
+    }
+
+    FrameAnimation {
+        running: root.opacity > 0 && !root.covered
+        onTriggered: root.tick(frameTime)
+    }
+
+    // Full rebuild when population or distribution changes
+    Connections {
+        target: Snow
+        function onCountChanged(): void {
+            root.rebuild();
+        }
+        function onEnabledChanged(): void {
+            root.rebuild();
+        }
+        function onMinSizeChanged(): void {
+            root.rebuild();
+        }
+        function onMaxSizeChanged(): void {
+            root.rebuild();
+        }
+        function onMinSpeedChanged(): void {
+            root.rebuild();
+        }
+        function onMaxSpeedChanged(): void {
+            root.rebuild();
+        }
+        function onDepthChanged(): void {
+            root.rebuild();
+        }
+        function onSwayChanged(): void {
+            root.rebuild();
+        }
+        // Purely visual changes, no position reset
+        function onColorChanged(): void {
+            root.restyle();
+        }
+        function onShapeChanged(): void {
+            root.restyle();
+        }
+        function onMinOpacityChanged(): void {
+            root.rebuild();
+        }
+        function onMaxOpacityChanged(): void {
+            root.rebuild();
+        }
+        function onDecayEnabledChanged(): void {
+            root.rebuild();
+        }
+        function onMinLifetimeChanged(): void {
+            root.rebuild();
+        }
+        function onMaxLifetimeChanged(): void {
+            root.rebuild();
+        }
+    }
+
+    Component.onCompleted: rebuild()
 }
