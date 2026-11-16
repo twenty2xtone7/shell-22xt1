@@ -56,6 +56,11 @@ caelestia install --noconfirm
 caelestia update --noconfirm   # rebuilds the plugin from the fetched source
 ```
 
+The manifest declares **no packages on purpose**. A package list makes the CLI resolve
+`quickshell-git` to whatever happens to provide it (it picked `noctalia-qs`, another
+shell's build, on one machine) and the package step needs root anyway. Install the
+requirements above yourself, then let the installer only deploy files.
+
 The CLI path also deploys only the shell; the hyprland config in `hypr/` is reference
 material for this fork's keybinds and is not applied automatically.
 

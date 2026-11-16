@@ -10,34 +10,25 @@
 #    directory to the QML import path, so `import Caelestia.Services` resolves with
 #    no system-wide install and no QML_IMPORT_PATH. The `etc` tree that
 #    `cmake --install` also drops there is removed by the hook.
-packages = [
-    "caelestia-cli",
-    "quickshell-git",
-    "cmake",
-    "ninja",
-    "qt6-base",
-    "qt6-declarative",
-    "qt6-multimedia",
-    "qt6-shadertools",
-    "libpipewire",
-    "aubio",
-    "libqalculate",
-    "libcava",
-    "lm_sensors",
-]
+packages = []
+
+# NOTE: deliberately empty. `caelestia install` would otherwise resolve
+# "quickshell-git" to whatever provides it (e.g. noctalia-qs) and swap the user's
+# shell out, and the package step needs root. Required packages are documented in
+# README.md instead; this installer only deploys the shell.
 
 post_install = [
     'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.',
     'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
     'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"',
-    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc"',
+    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/lib"',
 ]
 
 post_update = [
     'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.',
     'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
     'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"',
-    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc"',
+    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/lib"',
     'caelestia shell -k >/dev/null 2>&1 || true',
     'caelestia shell -d >/dev/null 2>&1 || true',
 ]

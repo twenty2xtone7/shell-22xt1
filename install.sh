@@ -74,8 +74,9 @@ ninja -j "$JOBS" -C "$SRC/build" | tail -3
 echo "==> deploying to $DEST"
 mkdir -p "$DEST"
 cmake --install "$SRC/build" --prefix "$DEST" >/dev/null
-# cmake also drops a copy of the QML tree under ./etc; the deploy below owns that
-rm -rf "$DEST/etc"
+# cmake also drops a copy of the QML tree under ./etc and a version stub under
+# ./lib; the deploy below owns the tree, and neither belongs in a config dir
+rm -rf "$DEST/etc" "$DEST/lib"
 
 for d in assets components daemons modules services utils; do
     [ -d "$SRC/$d" ] || continue
