@@ -3,9 +3,6 @@
 //@ pragma DefaultEnv QS_DROP_EXPENSIVE_FONTS=1
 //@ pragma DefaultEnv QSG_RENDER_LOOP=threaded
 //@ pragma DefaultEnv QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
-// The C++ plugin is built from this tree by the manifest's post_install hook and
-// copied here, so `qs -c caelestia` finds Caelestia.* without a system install.
-//@ pragma Env QML_IMPORT_PATH=/home/twenty2xtone/.local/share/caelestia/qml
 
 import QtQuick
 import Quickshell

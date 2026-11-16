@@ -34,7 +34,7 @@ Item {
             if (saved >= 0 && saved <= 2)
                 root.category = saved;
         }
-        onLoadFailed: {
+        onLoadFailed: err => {
             if (err === FileViewError.FileNotFound)
                 Qt.callLater(() => setText(String(root.category)));
         }

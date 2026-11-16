@@ -1,23 +1,45 @@
-# Caelestia fork — upstream shell with caelestia-fork-wip's features integrated
-# at source level. Deployed by `caelestia install`.
+# Caelestia fork — upstream shell with caelestia-fork-wip's features integrated at
+# source level, plus its own build of the C++ plugin.
 #
-# Only the QML shell tree is deployed. Hyprland config is intentionally NOT in
-# this manifest: the fork's shell does not depend on it, and overwriting
-# ~/.config/hypr from a snapshot would clobber a live, hand-tuned config.
-packages = []
+# Design notes:
+#  * Only the QML shell is deployed. Hyprland/fish/foot configs are deliberately
+#    NOT here: this fork changes the shell, and overwriting a live ~/.config/hypr
+#    from a snapshot would clobber hand-tuned configs.
+#  * The C++ plugin is built from this tree and installed INTO the config dir
+#    (`<config>/quickshell/caelestia/Caelestia/...`). Quickshell adds the config
+#    directory to the QML import path, so `import Caelestia.Services` resolves with
+#    no system-wide install and no QML_IMPORT_PATH. The `etc` tree that
+#    `cmake --install` also drops there is removed by the hook.
+packages = [
+    "caelestia-cli",
+    "quickshell-git",
+    "cmake",
+    "ninja",
+    "qt6-base",
+    "qt6-declarative",
+    "qt6-multimedia",
+    "qt6-shadertools",
+    "libpipewire",
+    "aubio",
+    "libqalculate",
+    "libcava",
+    "lm_sensors",
+]
 
-# The C++ plugin (Caelestia.* QML modules) has to be built from this same tree and
-# made importable, otherwise the deployed shell cannot resolve Caelestia.Services
-# and friends. shell.qml points QML_IMPORT_PATH at the copy destination below.
 post_install = [
-    'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release',
+    'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.',
     'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
-    'rm -rf "$HOME/.local/share/caelestia/qml"',
-    'cp -r "$CAELESTIA_DOTS/build/qml" "$HOME/.local/share/caelestia/qml"',
+    'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"',
+    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc"',
 ]
 
 post_update = [
+    'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.',
+    'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
+    'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"',
+    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc"',
     'caelestia shell -k >/dev/null 2>&1 || true',
+    'caelestia shell -d >/dev/null 2>&1 || true',
 ]
 
 [[components]]
