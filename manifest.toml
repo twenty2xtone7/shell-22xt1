@@ -20,15 +20,19 @@ packages = []
 post_install = [
     'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.',
     'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
-    'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"',
-    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/lib"',
+    'rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"',
+    'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"',
+    'rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"/etc "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"/lib',
+    'sed -i "s|__CAELESTIA_QML_IMPORT__|${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml|g" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/shell.qml"',
 ]
 
 post_update = [
     'cmake -S "$CAELESTIA_DOTS" -B "$CAELESTIA_DOTS/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.',
     'ninja -j 3 -C "$CAELESTIA_DOTS/build"',
-    'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"',
-    'rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/etc" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/lib"',
+    'rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"',
+    'cmake --install "$CAELESTIA_DOTS/build" --prefix "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"',
+    'rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"/etc "${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"/lib',
+    'sed -i "s|__CAELESTIA_QML_IMPORT__|${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml|g" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia/shell.qml"',
     'caelestia shell -k >/dev/null 2>&1 || true',
     'caelestia shell -d >/dev/null 2>&1 || true',
 ]

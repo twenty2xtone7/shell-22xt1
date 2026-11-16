@@ -62,8 +62,10 @@ Item {
 
     Wander {
         system: sys
+        // xVariance is a lateral speed (px/s); pace is the time between direction
+        // changes in ms, so it has to be the sway period, not the rate.
         xVariance: Snow.sway
-        pace: Snow.swaySpeed * 4
+        pace: Snow.swaySpeed > 0 ? Math.round(1000 / Snow.swaySpeed) : 1000
     }
 
     ImageParticle {

@@ -8,17 +8,19 @@
 set -e
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
-DEST="$HOME/.config/quickshell/caelestia"
-QMLOUT="$HOME/.local/share/caelestia/qml"
+DEST="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"
+QMLOUT="${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"
 
 # 1. Build the C++ plugin (incremental; no-op when unchanged)
-cmake -S "$SRC" -B "$SRC/build" -G Ninja -DCMAKE_BUILD_TYPE=Release
-ninja -j 3 -C "$SRC/build"
+cmake -S "$SRC" -B "$SRC/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.
+ninja -j "${JOBS:-3}" -C "$SRC/build"
 
-# 2. Publish the QML modules where shell.qml's QML_IMPORT_PATH points
+# 2. Install the plugin's QML modules where shell.qml's pragma will point.
+#    cmake --install (not a plain copy) rewrites the rpath to $ORIGIN/lib, which
+#    is what makes the modules movable out of the build tree.
 rm -rf "$QMLOUT"
-mkdir -p "$(dirname "$QMLOUT")"
-cp -r "$SRC/build/qml" "$QMLOUT"
+cmake --install "$SRC/build" --prefix "$QMLOUT" >/dev/null
+rm -rf "$QMLOUT/etc" "$QMLOUT/lib"
 
 # 3. Deploy the QML tree
 mkdir -p "$DEST"
@@ -27,6 +29,9 @@ for d in assets components daemons modules services utils; do
 done
 cp "$SRC/shell.qml" "$SRC/manifest.toml" "$DEST/"
 
+# 4. Bake the plugin path into the deployed shell.qml
+sed -i "s|__CAELESTIA_QML_IMPORT__|$QMLOUT|g" "$DEST/shell.qml"
+
 echo "deployed $(find "$DEST" -type f | wc -l) files to $DEST"
-echo "plugin modules: $QMLOUT"
-echo "reload the running shell with: caelestia shell -k && caelestia shell -d"
+echo "plugin modules: $QMLOUT/Caelestia"
+echo "reload the running shell with: caelestia shell -k; caelestia shell -d"

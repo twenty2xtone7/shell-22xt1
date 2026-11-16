@@ -3,6 +3,9 @@
 //@ pragma DefaultEnv QS_DROP_EXPENSIVE_FONTS=1
 //@ pragma DefaultEnv QSG_RENDER_LOOP=threaded
 //@ pragma DefaultEnv QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
+// Rewritten to the installing user's path by install.sh / deploy.sh; the C++
+// plugin's QML modules are installed there (see manifest.toml post_install).
+//@ pragma Env QML_IMPORT_PATH=__CAELESTIA_QML_IMPORT__
 
 import QtQuick
 import Quickshell

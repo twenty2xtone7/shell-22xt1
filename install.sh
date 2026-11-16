@@ -22,6 +22,7 @@ JOBS="${JOBS:-3}"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}"
 DEST="$CONF/quickshell/caelestia"
 SHARE="${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/fork"
+QMLOUT="${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -35,7 +36,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$UNINSTALL" = 1 ]; then
-    rm -rf "$DEST" "$SHARE"
+    rm -rf "$DEST" "$SHARE" "$QMLOUT"
     echo "removed $DEST"
     echo "quickshell now falls back to /etc/xdg/quickshell/caelestia if present"
     echo "restart the shell with: qs kill -c caelestia 2>/dev/null; caelestia shell -d"
@@ -73,10 +74,9 @@ ninja -j "$JOBS" -C "$SRC/build" | tail -3
 
 echo "==> deploying to $DEST"
 mkdir -p "$DEST"
-cmake --install "$SRC/build" --prefix "$DEST" >/dev/null
-# cmake also drops a copy of the QML tree under ./etc and a version stub under
-# ./lib; the deploy below owns the tree, and neither belongs in a config dir
-rm -rf "$DEST/etc" "$DEST/lib"
+rm -rf "$QMLOUT"
+cmake --install "$SRC/build" --prefix "$QMLOUT" >/dev/null
+rm -rf "$QMLOUT/etc" "$QMLOUT/lib"
 
 for d in assets components daemons modules services utils; do
     [ -d "$SRC/$d" ] || continue
@@ -88,12 +88,13 @@ for d in assets components daemons modules services utils; do
     fi
 done
 cp "$SRC/shell.qml" "$DEST/shell.qml"
+sed -i "s|__CAELESTIA_QML_IMPORT__|$QMLOUT|g" "$DEST/shell.qml"
 if [ -f "$SRC/manifest.toml" ]; then
     cp "$SRC/manifest.toml" "$DEST/manifest.toml"
 fi
 
 echo "==> deployed $(find "$DEST" -type f | wc -l) files"
-echo "    plugin modules: $DEST/Caelestia"
+echo "    plugin modules: $QMLOUT/Caelestia"
 echo
 echo "run it:     caelestia shell -k 2>/dev/null; caelestia shell -d"
 echo "uninstall:  $0 --uninstall"
