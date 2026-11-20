@@ -162,9 +162,15 @@ Singleton {
         name: "mediaToggle"
         description: "Toggle media playback"
         onPressed: {
-            const active = root.active;
-            if (active && active.canTogglePlaying)
-                active.togglePlaying();
+            if (Music.playing) {
+                Music.togglePlaying();
+            } else {
+                const active = root.active;
+                if (active && active.canTogglePlaying)
+                    active.togglePlaying();
+                else if (Music.hasTrack)
+                    Music.togglePlaying();
+            }
         }
     }
 
@@ -174,9 +180,13 @@ Singleton {
         name: "mediaPrev"
         description: "Previous track"
         onPressed: {
-            const active = root.active;
-            if (active && active.canGoPrevious)
-                active.previous();
+            if (Music.playing) {
+                Music.previous();
+            } else {
+                const active = root.active;
+                if (active && active.canGoPrevious)
+                    active.previous();
+            }
         }
     }
 
@@ -186,9 +196,13 @@ Singleton {
         name: "mediaNext"
         description: "Next track"
         onPressed: {
-            const active = root.active;
-            if (active && active.canGoNext)
-                active.next();
+            if (Music.playing) {
+                Music.next();
+            } else {
+                const active = root.active;
+                if (active && active.canGoNext)
+                    active.next();
+            }
         }
     }
 

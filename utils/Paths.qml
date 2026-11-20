@@ -11,6 +11,8 @@ Singleton {
     readonly property string home: Quickshell.env("HOME")
     readonly property string pictures: Quickshell.env("XDG_PICTURES_DIR") || `${home}/Pictures`
     readonly property string videos: Quickshell.env("XDG_VIDEOS_DIR") || `${home}/Videos`
+    readonly property string desktop: Quickshell.env("XDG_DESKTOP_DIR") || `${home}/Desktop`
+    readonly property string documents: Quickshell.env("XDG_DOCUMENTS_DIR") || `${home}/Documents`
 
     readonly property string data: `${Quickshell.env("XDG_DATA_HOME") || `${home}/.local/share`}/caelestia`
     readonly property string state: `${Quickshell.env("XDG_STATE_HOME") || `${home}/.local/state`}/caelestia`
@@ -21,6 +23,7 @@ Singleton {
     readonly property string notifimagecache: `${imagecache}/notifs`
     readonly property string wallsdir: Quickshell.env("CAELESTIA_WALLPAPERS_DIR") || absolutePath(GlobalConfig.paths.wallpaperDir)
     readonly property string recsdir: Quickshell.env("CAELESTIA_RECORDINGS_DIR") || `${videos}/Recordings`
+    readonly property string musicdir: absolutePath(GlobalConfig.paths.musicDir)
     readonly property string libdir: Quickshell.env("CAELESTIA_LIB_DIR") || "/usr/lib/caelestia"
 
     function toLocalFile(path: url): string {
@@ -34,5 +37,10 @@ Singleton {
 
     function shortenHome(path: string): string {
         return path.replace(home, "~");
+    }
+
+    function parentDir(path: string): string {
+        const cut = path.lastIndexOf("/");
+        return cut > 0 ? path.slice(0, cut) : path;
     }
 }
