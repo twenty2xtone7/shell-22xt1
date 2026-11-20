@@ -42,7 +42,7 @@ Variants {
         anchors.left: true
         anchors.right: true
 
-        visible: Radial.open && (Radial.screenName === "" || Radial.screenName === modelData.name)
+        visible: Radial.renderOpen && (Radial.screenName === "" || Radial.screenName === modelData.name)
 
         readonly property real itemSize: contentItem.Tokens.padding.extraLargeIncreased * 2
         readonly property real edgePadding: contentItem.Tokens.padding.extraLarge
@@ -139,6 +139,7 @@ Variants {
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.AllButtons
+            enabled: Radial.open
 
             onClicked: Radial.hide()
             onExited: Radial.selectedIndex = -1
@@ -166,6 +167,25 @@ Variants {
             y: win.origin.y
             width: 1
             height: 1
+            transformOrigin: Item.TopLeft
+            property string transitionStyle: Radial.open ? Radial.openAnimation : Radial.closing ? Radial.closeAnimation : Radial.openAnimation
+            scale: Radial.open ? 1 : Radial.initialScale(Radial.closing ? Radial.closeAnimation : Radial.openAnimation)
+            opacity: Radial.open ? 1 : 0
+
+            Behavior on scale {
+                enabled: hub.transitionStyle !== "none"
+                Anim {
+                    duration: Radial.open ? Radial.openAnimationDuration : Radial.closeAnimationDuration
+                    type: hub.transitionStyle === "fade" ? Anim.DefaultEffects : Anim.Emphasized
+                }
+            }
+            Behavior on opacity {
+                enabled: hub.transitionStyle !== "none"
+                Anim {
+                    duration: Radial.open ? Radial.openAnimationDuration : Radial.closeAnimationDuration
+                    type: Anim.DefaultEffects
+                }
+            }
 
             Repeater {
                 model: Radial.items
@@ -190,22 +210,11 @@ Variants {
                 height: win.itemSize * 0.62
                 x: -width / 2
                 y: -height / 2
-                scale: Radial.open ? 1 : 0.3
-                opacity: Radial.open ? 1 : 0
+                scale: 1
+                opacity: 1
 
                 radius: Tokens.rounding.full
                 color: Colours.palette.m3primary
-
-                Behavior on scale {
-                    Anim {
-                        type: Anim.Emphasized
-                    }
-                }
-                Behavior on opacity {
-                    Anim {
-                        type: Anim.DefaultEffects
-                    }
-                }
 
                 MaterialIcon {
                     anchors.centerIn: parent
@@ -224,6 +233,7 @@ Variants {
 
                 StateLayer {
                     radius: parent.radius
+                    disabled: !Radial.open
                     color: Colours.palette.m3onPrimary
                     onClicked: Radial.activateCenter()
                 }

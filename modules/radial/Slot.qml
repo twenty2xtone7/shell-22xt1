@@ -26,40 +26,21 @@ Item {
     readonly property var offset: clampOffset(Radial.offsetFor(index, count, radius))
     readonly property bool toRight: offset.x >= 0
     readonly property bool toBottom: offset.y > 8
+    readonly property real selectedScale: Radial.selectionAnimation === "none" ? 1 : Radial.selectionAnimation === "subtle" ? 1.06 : 1.15
 
     readonly property real iconSize: Tokens.padding.extraLargeIncreased * 2
-    readonly property real hoverScale: selected || hovered ? 1.15 : 1
+    readonly property real selectionScale: selected || hovered ? selectedScale : 1
     property bool hovered: false
 
     implicitWidth: iconSize
     implicitHeight: iconSize
 
-    // Closed: sits exactly on the origin
-    x: Radial.open ? offset.x - width / 2 : -width / 2
-    y: Radial.open ? offset.y - height / 2 : -height / 2
-    opacity: Radial.open ? 1 : 0
-    scale: Radial.open ? hoverScale : 0.4
-
-    Behavior on x {
-        Anim {
-            type: Anim.Emphasized
-        }
-    }
-    Behavior on y {
-        Anim {
-            type: Anim.Emphasized
-        }
-    }
-    Behavior on opacity {
-        Anim {
-            type: Anim.DefaultEffects
-        }
-    }
-    Behavior on scale {
-        Anim {
-            type: Anim.Emphasized
-        }
-    }
+    // The shared radial hub handles entry/exit motion, keeping each slot
+    // lightweight. Slots retain static final geometry while open.
+    x: offset.x - width / 2
+    y: offset.y - height / 2
+    opacity: 1
+    scale: 1
 
     // Icon container
     StyledRect {
@@ -68,6 +49,16 @@ Item {
         anchors.centerIn: parent
         width: root.iconSize
         height: root.iconSize
+        scale: root.selectionScale
+
+        Behavior on scale {
+            enabled: Radial.selectionAnimation !== "none"
+
+            Anim {
+                duration: Radial.selectionAnimationDuration
+                type: Radial.selectionAnimation === "subtle" ? Anim.DefaultSpatial : Anim.Emphasized
+            }
+        }
 
         radius: Tokens.rounding.full
         color: root.selected ? Colours.palette.m3primaryContainer : Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
@@ -116,6 +107,7 @@ Item {
             id: hit
 
             radius: parent.radius
+            disabled: !Radial.open
             color: root.selected ? Colours.palette.m3onPrimaryContainer : Colours.palette.m3onSurface
 
             onContainsMouseChanged: root.hovered = containsMouse

@@ -64,6 +64,30 @@ PageBase {
         }
     ]
 
+    readonly property list<MenuItem> openAnimationItems: [
+        MenuItem { text: Tr.tr("Expand from centre"); value: "expand" },
+        MenuItem { text: Tr.tr("Fade in"); value: "fade" },
+        MenuItem { text: Tr.tr("Zoom in"); value: "zoom" },
+        MenuItem { text: Tr.tr("Instant"); value: "none" }
+    ]
+
+    readonly property list<MenuItem> closeAnimationItems: [
+        MenuItem { text: Tr.tr("Collapse to centre"); value: "collapse" },
+        MenuItem { text: Tr.tr("Fade out"); value: "fade" },
+        MenuItem { text: Tr.tr("Zoom out"); value: "zoom" },
+        MenuItem { text: Tr.tr("Instant"); value: "none" }
+    ]
+
+    readonly property list<MenuItem> selectionAnimationItems: [
+        MenuItem { text: Tr.tr("Pop"); value: "pop" },
+        MenuItem { text: Tr.tr("Subtle"); value: "subtle" },
+        MenuItem { text: Tr.tr("None"); value: "none" }
+    ]
+
+    function animationItemFor(items: var, value: string): var {
+        return items.find(i => i.value === value) ?? items[0];
+    }
+
     function typeKey(type: string): int {
         switch (type) {
         case "command":
@@ -130,6 +154,35 @@ PageBase {
             subtext: Tr.tr("Hold the shortcut, move to an item, release to run it")
             checked: Radial.holdToActivate
             onToggled: Radial.setMenuValue("holdToActivate", checked)
+        }
+
+        SectionHeader {
+            text: Tr.tr("Animations")
+        }
+
+        SelectRow {
+            first: true
+            label: Tr.tr("Opening")
+            subtext: Tr.tr("How the radial menu appears")
+            menuItems: root.openAnimationItems
+            active: root.animationItemFor(menuItems, Radial.openAnimation)
+            onSelected: item => Radial.setMenuValue("openAnimation", item.value)
+        }
+
+        SelectRow {
+            label: Tr.tr("Closing")
+            subtext: Tr.tr("How the radial menu disappears")
+            menuItems: root.closeAnimationItems
+            active: root.animationItemFor(menuItems, Radial.closeAnimation)
+            onSelected: item => Radial.setMenuValue("closeAnimation", item.value)
+        }
+
+        SelectRow {
+            label: Tr.tr("Item selection")
+            subtext: Tr.tr("How items animate when highlighted")
+            menuItems: root.selectionAnimationItems
+            active: root.animationItemFor(menuItems, Radial.selectionAnimation)
+            onSelected: item => Radial.setMenuValue("selectionAnimation", item.value)
         }
 
         ToggleRow {

@@ -42,6 +42,9 @@ Singleton {
             anchor: "center",
             holdToActivate: false,
             centerAction: "close",
+            openAnimation: "expand",
+            closeAnimation: "collapse",
+            selectionAnimation: "pop",
             items: [
                 { label: "Firefox", type: "app", value: "firefox", icon: "public", key: "1" },
                 { label: "Files", type: "command", value: "thunar", icon: "folder", key: "2" },
@@ -61,14 +64,45 @@ Singleton {
     readonly property string anchor: menu.anchor ?? "center"
     readonly property bool holdToActivate: menu.holdToActivate ?? false
     readonly property string centerAction: menu.centerAction ?? "close"
+    readonly property string openAnimation: menu.openAnimation ?? "expand"
+    readonly property string closeAnimation: menu.closeAnimation ?? "collapse"
+    readonly property string selectionAnimation: menu.selectionAnimation ?? "pop"
+    readonly property int openAnimationDuration: animationDuration(openAnimation)
+    readonly property int closeAnimationDuration: animationDuration(closeAnimation)
+    readonly property int selectionAnimationDuration: animationDuration(selectionAnimation)
 
     // Interaction state
     property bool open: false
+    property bool renderOpen: false
+    property bool closing: false
     property bool holdMode: false
     property int selectedIndex: -1
     property string screenName: ""
 
     readonly property bool active: open
+
+    function animationDuration(style: string): int {
+        switch (style) {
+        case "none":
+            return 0;
+        case "fade":
+            return 180;
+        case "zoom":
+        case "pop":
+        case "shrink":
+            return 240;
+        case "subtle":
+            return 160;
+        default:
+            return 320;
+        }
+    }
+
+    function initialScale(style: string): real {
+        if (style === "zoom")
+            return 0.15;
+        return style === "expand" || style === "collapse" ? 0.4 : 1;
+    }
 
     // ---- geometry ----
 
@@ -338,6 +372,8 @@ Singleton {
 
     function activate(index: int): void {
         const item = items[index];
+        selectedIndex = index;
+        closeTimer.interval = closeAnimationDuration + 40;
         hide();
         if (!item)
             return;
@@ -358,6 +394,7 @@ Singleton {
             hide();
             return;
         }
+        centerTimer.interval = closeAnimationDuration + 40;
         hide();
         centerTimer.action = centerAction;
         centerTimer.running = true;
@@ -366,9 +403,12 @@ Singleton {
     // ---- open / close ----
 
     function show(screen: string, asHold: bool): void {
+        closeVisibilityTimer.stop();
+        closing = false;
         screenName = screen ?? screenName;
         holdMode = asHold ?? holdToActivate;
         selectedIndex = -1;
+        renderOpen = true;
         open = true;
     }
 
@@ -383,7 +423,15 @@ Singleton {
     function hide(): void {
         open = false;
         holdMode = false;
-        selectedIndex = -1;
+        if (closeAnimationDuration === 0) {
+            renderOpen = false;
+            closing = false;
+            selectedIndex = -1;
+        } else if (renderOpen) {
+            closing = true;
+            closeVisibilityTimer.interval = closeAnimationDuration;
+            closeVisibilityTimer.restart();
+        }
     }
 
     // ---- config ----
@@ -423,6 +471,9 @@ Singleton {
             anchor: d.anchor,
             holdToActivate: d.holdToActivate,
             centerAction: d.centerAction,
+            openAnimation: d.openAnimation,
+            closeAnimation: d.closeAnimation,
+            selectionAnimation: d.selectionAnimation,
             items: d.items.map(i => Object.assign({}, i))
         };
         config = Object.assign({}, config, { menus: menus });
@@ -471,10 +522,22 @@ Singleton {
     // ---- deferred runners (run once the menu is closed) ----
 
     Timer {
+        id: closeVisibilityTimer
+
+        interval: root.closeAnimationDuration
+        repeat: false
+        onTriggered: {
+            root.renderOpen = false;
+            root.closing = false;
+            root.selectedIndex = -1;
+        }
+    }
+
+    Timer {
         id: closeTimer
 
         property var item: null
-        interval: 120
+        interval: root.closeAnimationDuration + 40
         onTriggered: {
             const it = item;
             item = null;
@@ -486,7 +549,7 @@ Singleton {
         id: centerTimer
 
         property string action: ""
-        interval: 120
+        interval: root.closeAnimationDuration + 40
         onTriggered: {
             const a = action;
             action = "";
