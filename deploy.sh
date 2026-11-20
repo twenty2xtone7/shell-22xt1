@@ -11,6 +11,22 @@ SRC="$(cd "$(dirname "$0")" && pwd)"
 DEST="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/caelestia"
 QMLOUT="${XDG_DATA_HOME:-$HOME/.local/share}/caelestia/qml"
 
+# Dirty by default: ninja only rebuilds what changed. Pass --clean for a full rebuild (e.g. after
+# touching CMakeLists or when the build tree looks stale).
+for arg in "$@"; do
+    case "$arg" in
+    -c | --clean) rm -rf "$SRC/build" ;;
+    -h | --help)
+        sed -n '2,10p' "$0"
+        exit 0
+        ;;
+    *)
+        echo "unknown argument: $arg (try --clean)" >&2
+        exit 2
+        ;;
+    esac
+done
+
 # 1. Build the C++ plugin (incremental; no-op when unchanged)
 cmake -S "$SRC" -B "$SRC/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DINSTALL_QMLDIR=.
 ninja -j "${JOBS:-3}" -C "$SRC/build"
