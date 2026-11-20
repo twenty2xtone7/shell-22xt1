@@ -314,6 +314,14 @@ Singleton {
         case "screenshot":
             Quickshell.execDetached(["caelestia", "screenshot"]);
             break;
+        case "googleLens": {
+            const browser = GlobalConfig.general.apps.browser ?? [];
+            Quickshell.execDetached(["bash", `${Quickshell.shellDir}/assets/lens.sh`, ...browser]);
+            break;
+        }
+        case "ocr":
+            Quickshell.execDetached(["bash", `${Quickshell.shellDir}/assets/ocr.sh`]);
+            break;
         case "clipboard":
             Hypr.dispatch("caelestia:clipboard");
             break;
