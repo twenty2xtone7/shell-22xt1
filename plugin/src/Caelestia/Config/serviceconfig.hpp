@@ -20,6 +20,23 @@ class PlayerAlias : public settings::ObjectNode {
 };
 CONFIG_LIST_TYPE(PlayerAlias, PlayerAliasList)
 
+// System sound effects, played through the system's XDG sound theme
+class SoundEffectsConfig : public settings::ObjectNode {
+    CONFIG_NODE(SoundEffectsConfig, settings::ObjectNode)
+
+    CONFIG_GLOBAL_PROPERTY(bool, enabled, true)
+    CONFIG_GLOBAL_PROPERTY(qreal, sfxVolume, 0.9)
+    CONFIG_GLOBAL_PROPERTY(qreal, notificationVolume, 0.5)
+    CONFIG_GLOBAL_PROPERTY(bool, cameraClick, true)
+    CONFIG_GLOBAL_PROPERTY(bool, chargingStarted, true)
+    CONFIG_GLOBAL_PROPERTY(bool, volumeTick, true)
+    CONFIG_GLOBAL_PROPERTY(bool, screenLock, true)
+    CONFIG_GLOBAL_PROPERTY(bool, screenUnlock, true)
+    CONFIG_GLOBAL_PROPERTY(bool, lowBattery, true)
+    CONFIG_GLOBAL_PROPERTY(bool, screenRecord, true)
+    CONFIG_GLOBAL_PROPERTY(bool, timerEnd, true)
+};
+
 class ServiceConfig : public settings::ObjectNode {
     CONFIG_NODE(ServiceConfig, settings::ObjectNode)
 
@@ -43,6 +60,7 @@ class ServiceConfig : public settings::ObjectNode {
             vmap({ { u"from"_s, u"com.github.th_ch.youtube_music"_s }, { u"to"_s, u"YT Music"_s } }),
         }))
     CONFIG_GLOBAL_ENUM_PROPERTY(LyricsBackend, lyricsBackend, LyricsBackend::Auto)
+    CONFIG_GLOBAL_SUBOBJECT(SoundEffectsConfig, soundEffects)
 };
 
 } // namespace caelestia::shell::config
