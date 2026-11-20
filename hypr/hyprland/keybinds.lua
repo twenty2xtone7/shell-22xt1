@@ -158,8 +158,8 @@ create_bind(
 )
 
 -- Window groups
-create_bind(vars.kbWindowCycleNext, hl.dsp.window.cycle_next(), repeating)
-create_bind(vars.kbWindowCyclePrev, hl.dsp.window.cycle_next({ next = false }), repeating)
+create_bind(vars.kbWindowCycleNext, hl.dsp.exec_cmd("qs ipc -c caelestia call overview cycle"))
+create_bind(vars.kbWindowCyclePrev, hl.dsp.exec_cmd("qs ipc -c caelestia call overview cycleBack"))
 create_bind(vars.kbWindowGroupCycleNext, hl.dsp.group.next(), repeating)
 create_bind(vars.kbWindowGroupCyclePrev, hl.dsp.group.prev(), repeating)
 create_bind(vars.kbToggleGroup, hl.dsp.group.toggle())

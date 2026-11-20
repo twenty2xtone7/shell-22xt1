@@ -17,6 +17,7 @@ import qs.modules.background
 import qs.modules.drawers
 import qs.modules.lock
 import qs.modules.radial
+import qs.modules.overview.ui
 import qs.modules.launcher.services
 import qs.daemons
 
@@ -61,6 +62,7 @@ ShellRoot {
     Drawers {}
     AreaPicker {}
     RadialMenu {}
+    Overview {}
     Lock {
         id: lock
     }
