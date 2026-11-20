@@ -297,8 +297,8 @@ create_bind(
 create_bind(vars.kbSleep, hl.dsp.exec_cmd(vars.sleepGestureCmd), locked)
 
 -- Clipboard and emoji picker
-create_bind(vars.kbClipboard, hl.dsp.exec_cmd("pkill fuzzel || caelestia clipboard"))
-create_bind(vars.kbClipboardDel, hl.dsp.exec_cmd("pkill fuzzel || caelestia clipboard -d"))
+create_bind(vars.kbClipboard, hl.dsp.global("caelestia:clipboard"))
+create_bind(vars.kbClipboardDel, hl.dsp.global("caelestia:clipboardDelete"))
 create_bind(vars.kbEmoji, hl.dsp.exec_cmd("pkill fuzzel || caelestia emoji -p"))
 create_bind(
     vars.kbClipboardPasteLatest,
