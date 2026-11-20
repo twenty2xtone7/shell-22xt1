@@ -21,6 +21,9 @@ class GeneralApps : public settings::ObjectNode {
     CONFIG_PROPERTY(QStringList, audio, { u"pwvucontrol"_s })
     CONFIG_PROPERTY(QStringList, playback, { u"mpv"_s })
     CONFIG_PROPERTY(QStringList, explorer, { u"thunar"_s })
+    // NOTE(fork): what the shell opens web links in (the launcher's >lens, links in
+    // notifications). Empty leaves it to the desktop's default browser, through xdg-open
+    CONFIG_GLOBAL_PROPERTY(QStringList, browser, {})
 };
 
 class GeneralIdleTimeout : public settings::ObjectNode {

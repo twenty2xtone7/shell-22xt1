@@ -185,6 +185,10 @@ Searcher {
             } else if (command[0] === "setMode" && command.length > 1) {
                 list.screenState.launcher = false;
                 Colours.setMode(command[1]);
+            } else if (["ocr", "lens"].includes(command[0])) {
+                list.screenState.launcher = false;
+                const extra = (command[0] === "lens" && GlobalConfig.general.apps.browser) ? GlobalConfig.general.apps.browser : [];
+                Quickshell.execDetached(["bash", `${Quickshell.shellDir}/assets/${command[0]}.sh`, ...extra]);
             } else {
                 list.screenState.launcher = false;
                 if (!SessionManager.exec(command))

@@ -85,6 +85,18 @@ class LauncherConfig : public settings::ObjectNode {
                 { u"command"_s, QStringList{ u"caelestia"_s, u"wallpaper"_s, u"-r"_s } },
             }),
             vmap({
+                { u"name"_s, markCtx(u"OCR"_s, u"launcher action"_s) },
+                { u"icon"_s, u"text_fields"_s },
+                { u"description"_s, mark(u"Capture a region and copy detected text"_s) },
+                { u"command"_s, QStringList{ u"ocr"_s } },
+            }),
+            vmap({
+                { u"name"_s, markCtx(u"Google Lens"_s, u"launcher action"_s) },
+                { u"icon"_s, u"image_search"_s },
+                { u"description"_s, mark(u"Search a captured region with Google Lens"_s) },
+                { u"command"_s, QStringList{ u"lens"_s } },
+            }),
+            vmap({
                 { u"name"_s, markCtx(u"Light"_s, u"launcher action"_s) },
                 { u"icon"_s, u"light_mode"_s },
                 { u"description"_s, mark(u"Change the scheme to light mode"_s) },
