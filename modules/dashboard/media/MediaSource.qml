@@ -21,7 +21,7 @@ QtObject {
     readonly property string artist: root.local ? Music.artist : (root.mpris?.trackArtist ?? "")
     readonly property string album: root.local ? Music.album : (root.mpris?.trackAlbum ?? "")
     readonly property string coverSource: root.local ? Music.coverPath : Players.getArtUrl(root.mpris)
-    readonly property real length: root.local ? Music.duration : (root.mpris?.length ?? 0)
+    readonly property real length: root.local ? Music.duration : Players.trackLength(root.mpris)
     readonly property real position: root.local ? Music.position : (root.mpris?.position ?? 0)
 
     // Spotify's own id for the track being played, when Spotify is what is making the sound. The
@@ -39,7 +39,7 @@ QtObject {
         return "";
     }
 
-    readonly property bool canSeek: root.local ? Music.duration > 0 : (root.mpris?.canSeek ?? false)
+    readonly property bool canSeek: root.local ? Music.duration > 0 : ((root.mpris?.canSeek ?? false) && (root.mpris?.positionSupported ?? false) && root.length > 0)
     readonly property bool canTogglePlaying: root.local ? Music.hasTrack : (root.mpris?.canTogglePlaying ?? false)
     readonly property bool canGoPrevious: root.local ? Music.hasTrack : (root.mpris?.canGoPrevious ?? false)
     readonly property bool canGoNext: root.local ? Music.hasTrack : (root.mpris?.canGoNext ?? false)
@@ -94,8 +94,8 @@ QtObject {
     function seek(seconds: real): void {
         if (root.local) {
             Music.seek(seconds);
-        } else if (root.mpris?.canSeek && root.mpris?.positionSupported) {
-            root.mpris.position = seconds;
+        } else {
+            Players.seekTo(root.mpris, seconds);
         }
     }
 

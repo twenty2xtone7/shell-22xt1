@@ -14,6 +14,7 @@ Singleton {
     id: root
 
     readonly property list<MprisPlayer> list: Mpris.players.values
+    property var trackLengths: ({})
     // A player is "real" when it reports both a title and an artist. The local
     // "Caelestia Music" MPRIS stub reports title "Unknown" with no artist, and
     // used to win over the player the user was actually listening to.
@@ -31,6 +32,38 @@ Singleton {
         return props.manualActive ?? preferred ?? list.find(p => p.isPlaying && hasMeta(p)) ?? list.find(p => hasMeta(p)) ?? list[0] ?? null;
     }
     property alias manualActive: props.manualActive
+
+    function trackKey(player: MprisPlayer): string {
+        return player ? `${player.address}\0${player.uniqueId}\0${player.metadata["xesam:url"] ?? ""}\0${player.trackTitle}` : "";
+    }
+
+    function rememberLength(): void {
+        const player = root.active;
+        if (!player?.lengthSupported || !Number.isFinite(player.length) || player.length <= 0 || player.length > 2147483647)
+            return;
+        const key = root.trackKey(player);
+        if (root.trackLengths[key] === player.length)
+            return;
+        const lengths = Object.assign({}, root.trackLengths);
+        lengths[key] = player.length;
+        const keys = Object.keys(lengths);
+        if (keys.length > 32)
+            delete lengths[keys[0]];
+        root.trackLengths = lengths;
+    }
+
+    function trackLength(player: MprisPlayer): real {
+        // Quickshell returns position as length when MPRIS omits mpris:length.
+        const length = player?.lengthSupported ? player.length : (root.trackLengths[root.trackKey(player)] ?? 0);
+        return Number.isFinite(length) && length > 0 && length <= 2147483647 ? length : 0;
+    }
+
+    function seekTo(player: MprisPlayer, seconds: real): void {
+        const length = root.trackLength(player);
+        if (!player?.canSeek || !player.positionSupported || !length || !Number.isFinite(seconds))
+            return;
+        player.position = Math.max(0, Math.min(length, seconds));
+    }
 
     // Dedup key for progressive metadata (e.g. mpv-mpris/yt-dlp player fills title then artist later).
     property string lastNowPlayingKey: ""
@@ -112,13 +145,11 @@ Singleton {
 
     onActiveChanged: {
         lastNowPlayingKey = "";
+        rememberLength();
         syncLyrics();
     }
 
     Connections {
-        ignoreUnknownSignals: true
-        target: root.active
-
         function onTrackTitleChanged(): void {
             root.syncLyrics();
         }
@@ -128,8 +159,20 @@ Singleton {
         }
 
         function onPostTrackChanged(): void {
+            root.rememberLength();
             root.syncLyrics();
         }
+
+        function onLengthChanged(): void {
+            root.rememberLength();
+        }
+
+        function onLengthSupportedChanged(): void {
+            root.rememberLength();
+        }
+
+        ignoreUnknownSignals: true
+        target: root.active
     }
 
     Connections {

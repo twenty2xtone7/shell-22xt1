@@ -11,11 +11,15 @@ import qs.services
 ColumnLayout {
     id: root
 
-    readonly property bool hasUnknownLength: (Players.active?.length ?? 0) > 2147483647
+    readonly property real trackLength: Players.trackLength(Players.active)
+    readonly property bool hasUnknownLength: trackLength <= 0
+    property var seekPlayer: null
+    property string seekTrackKey: ""
+    property real seekLength: 0
 
-    function lengthStr(length: int): string {
-        if (length < 0)
-            return "-1:-1";
+    function lengthStr(length: real): string {
+        if (!Number.isFinite(length) || length < 0)
+            return "--:--";
 
         const hours = Math.floor(length / 3600);
         const mins = Math.floor((length % 3600) / 60);
@@ -70,7 +74,7 @@ ColumnLayout {
         TextMetrics {
             id: timeMetrics
 
-            text: Players.active ? root.lengthStr(Math.max(Players.active.position, root.hasUnknownLength ? 0 : Players.active.length)).replace(/[1-9]/g, "0") : "00:00"
+            text: Players.active ? root.lengthStr(Math.max(Players.active.position, root.trackLength)).replace(/[1-9]/g, "0") : "00:00"
             font: Tokens.font.label.medium
         }
 
@@ -88,30 +92,36 @@ ColumnLayout {
             id: positionSlider
 
             Layout.fillWidth: true
-            value: Players.active ? Players.active.position / (Players.active.length || 1) : 0
-            enabled: (Players.active?.canSeek ?? false) && !root.hasUnknownLength
+            value: !root.hasUnknownLength ? Math.max(0, Math.min(1, (Players.active?.position ?? 0) / root.trackLength)) : 0
+            enabled: (Players.active?.canSeek ?? false) && (Players.active?.positionSupported ?? false) && !root.hasUnknownLength
             wavy: true
             animateWave: Players.active?.isPlaying ?? false
             waveFrequency: 5
             waveDuration: 2000
             interactionOnMove: false
+            onDraggingChanged: {
+                if (dragging) {
+                    root.seekPlayer = Players.active;
+                    root.seekTrackKey = Players.trackKey(Players.active);
+                    root.seekLength = root.trackLength;
+                }
+            }
             onInteraction: value => {
-                const active = Players.active;
-                if (active?.canSeek && active?.positionSupported)
-                    active.position = value * active.length;
+                if (root.seekPlayer === Players.active && root.seekTrackKey === Players.trackKey(Players.active))
+                    Players.seekTo(root.seekPlayer, value * root.seekLength);
             }
 
             Binding {
                 target: positionLabel
                 property: "text"
-                value: root.lengthStr(positionSlider.pos * (Players.active?.length ?? 0))
+                value: root.lengthStr(positionSlider.pos * root.seekLength)
                 when: positionSlider.dragging
             }
         }
 
         StyledText {
             Layout.preferredWidth: timeMetrics.width
-            text: root.hasUnknownLength ? "--:--" : root.lengthStr(Players.active?.length ?? -1)
+            text: root.hasUnknownLength ? "--:--" : root.lengthStr(root.trackLength)
             color: Colours.palette.m3onSurfaceVariant
             font: timeMetrics.font
             horizontalAlignment: Text.AlignHCenter

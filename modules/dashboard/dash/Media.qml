@@ -19,7 +19,8 @@ Item {
 
     property real playerProgress: {
         const active = Players.active;
-        return active?.length ? (active.position % active.length) / active.length : 0;
+        const length = Players.trackLength(active);
+        return length > 0 ? Math.max(0, Math.min(1, active.position / length)) : 0;
     }
 
     readonly property real arcCoverGap: Tokens.spacing.extraSmall
