@@ -229,6 +229,14 @@ Singleton {
         sourceComponent: BeatTracker {}
     }
 
+    ServiceRef {
+        service: root.cava
+    }
+
+    ServiceRef {
+        service: root.beatTracker
+    }
+
     IpcHandler {
         function cycleOutput(): void {
             root.cycleNextAudioOutput();
